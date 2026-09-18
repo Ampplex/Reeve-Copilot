@@ -60,52 +60,47 @@ Because the memory is temporal, newer facts can supersede older decisions instea
 
 # Human-Centered Coding Agent
 
-Reeve is designed around a simple principle:
+Reeve is designed around a core principle:
 
 > **The developer should understand the agent's decisions rather than blindly approve them.**
 
-Instead of:
+Instead of silent changes or cryptic execution logs, Reeve provides concise, evidence-grounded explanations directly in the chat workflow:
 
 ```text
-Implemented authentication.
+Agent Action Flow
+─────────────────
+User Prompt + Coding Agent Action
+       │
+       ▼
+Action Observer (Filters meaningful actions: edits, creates, deletes, commands)
+       │
+       ▼
+Context Builder (Captures diff, target, command, execution result, Reeve memory)
+       │
+       ▼
+Human Explanation Model (Copilot LM with strict evidence-only prompt)
+       │
+       ▼
+Developer-Facing Natural Explanation (Pre-execution intent & post-execution outcome)
 ```
 
-Reeve aims to provide structured explanations such as:
+### Key Principles of the Human-Centered Explanation Layer
 
-```text
-WHAT I FOUND
+1. **Evidence-Grounded (Zero Guesswork)**:
+   Explanations are strictly derived from the actual code diff, executed command, user request, and relevant Reeve memory. The model does not invent reasons, guess architectural philosophy, or fabricate "duplicated logic across components".
 
-Authentication is already centralized in AuthMiddleware.
+2. **Pre-Execution & Post-Execution Explanations**:
+   - **Before Tool Execution**: Explains the intended change and supporting evidence before files are modified or destructive terminal commands run.
+   - **After Tool Execution**: Summarizes the actual outcome and verifies results (e.g. test outputs or stdout), avoiding duplicate narration if the agent already explained the change.
 
-WHAT I CHANGED
+3. **Zero Noise on Read-Only Actions**:
+   Informational queries (`read_file`, `grep_search`, `list_dir`) execute silently without interrupting the developer with preachy meta-explanations.
 
-Extended the existing middleware instead of introducing
-a second authentication path.
+4. **Temporal Reeve Memory Integration**:
+   Durable project decisions and constraints recalled from Reeve memory inform explanations. Superseded decisions are clearly contextualized as historical notes rather than active constraints.
 
-WHY
-
-The existing architecture already uses this boundary for
-protected routes.
-
-IMPACT
-
-3 files changed
-2 tests added
-1 authentication path simplified
-
-TRADE-OFF
-
-The middleware now owns slightly more logic, but
-authentication remains centralized.
-
-[View Diff] [View Architecture]
-```
-
-The exact presentation evolves with the agent interface, but the goal is consistent:
-
-**What → Why → Evidence → Impact → Trade-offs**
-
-Reeve does not expose hidden chain-of-thought. It surfaces concise, reviewable reasoning and supporting project context.
+5. **Fail-Safe & Non-Intrusive**:
+   The humanizer operates fail-safe without modifying Copilot's system identity, authentication, entitlement, or model routing. If the explanation model is unavailable or throws, the tool execution proceeds seamlessly.
 
 ---
 
@@ -272,9 +267,15 @@ extensions/copilot/
 ├── src/
 │   ├── platform/reeve/
 │   │   ├── common/
+│   │   │   ├── reeveActionObserver.ts
 │   │   │   └── reeveClient.ts
 │   │   ├── node/
-│   │   │   └── reeveClient.ts
+│   │   │   ├── humanCenteredExplanationLayer.ts
+│   │   │   ├── humanExplanationService.ts
+│   │   │   ├── reeveActionObserver.ts
+│   │   │   ├── reeveClient.ts
+│   │   │   └── test/
+│   │   │       └── humanCenteredExplanationLayer.spec.ts
 │   │   └── test/node/
 │   │       └── reeveClient.spec.ts
 │   │
@@ -293,13 +294,17 @@ extensions/copilot/
 
 ### Key Files
 
-| File                                                                                                                                   | Purpose                                         |
-| -------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
-| [`platform/reeve/node/reeveClient.ts`](vscode/extensions/copilot/src/platform/reeve/node/reeveClient.ts)                               | MCP client and SSE transport                    |
-| [`platform/reeve/common/reeveClient.ts`](vscode/extensions/copilot/src/platform/reeve/common/reeveClient.ts)                           | Reeve service interface and types               |
+| File | Purpose |
+| --- | --- |
+| [`platform/reeve/node/reeveClient.ts`](vscode/extensions/copilot/src/platform/reeve/node/reeveClient.ts) | MCP client and SSE transport |
+| [`platform/reeve/common/reeveClient.ts`](vscode/extensions/copilot/src/platform/reeve/common/reeveClient.ts) | Reeve service interface and types |
+| [`platform/reeve/node/humanExplanationService.ts`](vscode/extensions/copilot/src/platform/reeve/node/humanExplanationService.ts) | Copilot chat model-driven human explanation service |
+| [`platform/reeve/node/humanCenteredExplanationLayer.ts`](vscode/extensions/copilot/src/platform/reeve/node/humanCenteredExplanationLayer.ts) | Action explanation lifecycle and streaming layer |
+| [`platform/reeve/node/reeveActionObserver.ts`](vscode/extensions/copilot/src/platform/reeve/node/reeveActionObserver.ts) | Meaningful action observer and raw evidence collector |
+| [`platform/reeve/common/reeveActionObserver.ts`](vscode/extensions/copilot/src/platform/reeve/common/reeveActionObserver.ts) | Action evidence, context, and observer interfaces |
 | [`conversation/vscode-node/chatParticipants.ts`](vscode/extensions/copilot/src/extension/conversation/vscode-node/chatParticipants.ts) | Integration with Copilot conversation workflows |
-| [`tools/node/reeveSearchMemoryTool.ts`](vscode/extensions/copilot/src/extension/tools/node/reeveSearchMemoryTool.ts)                   | Reeve memory tool exposed to the coding agent   |
-| [`extension/vscode-node/services.ts`](vscode/extensions/copilot/src/extension/extension/vscode-node/services.ts)                       | Reeve dependency-injection registration         |
+| [`tools/node/reeveSearchMemoryTool.ts`](vscode/extensions/copilot/src/extension/tools/node/reeveSearchMemoryTool.ts) | Reeve memory tool exposed to the coding agent |
+| [`extension/vscode-node/services.ts`](vscode/extensions/copilot/src/extension/extension/vscode-node/services.ts) | Reeve dependency-injection registration |
 
 ---
 
@@ -425,6 +430,9 @@ Existing GitHub Copilot authentication, entitlement, model access, and billing b
 
 ```bash
 cd extensions/copilot
+
+npx vitest run \
+  src/platform/reeve/node/test/humanCenteredExplanationLayer.spec.ts
 
 npx vitest run \
   src/platform/reeve/test/node/reeveClient.spec.ts
