@@ -365,7 +365,80 @@ export REEVE_AUTH_TOKEN="..."
 
 # Architecture
 
-## MCP over SSE
+Reeve operates as an integrated platform inside Code - OSS / GitHub Copilot, bridging persistent cloud memory with local agent execution and developer-facing explanations.
+
+```mermaid
+flowchart TB
+    subgraph UI["VS Code Chat & Editor UI"]
+        UserPrompt["Developer Prompt"]
+        ChatStream["Chat Response & Pre-Action Stream"]
+        ApprovalCard["Tool Approval Dialog"]
+    end
+
+    subgraph ChatCore["Copilot Conversation Runtime (chatParticipants.ts)"]
+        ChatParticipant["ChatParticipantRequestHandler"]
+        MemoryInjector["Memory Recall & Injection (preparePromptWithMemory)"]
+        StreamSpy["ChatResponseStreamImpl (Spy Stream)"]
+    end
+
+    subgraph LLM["Language Model Providers (vscode.lm)"]
+        CopilotModel["Active Chat Model (Copilot / GPT / Claude)"]
+    end
+
+    subgraph ReeveMemory["Reeve Long-Term Memory (reeveClient.ts)"]
+        SSEConn["ReeveProtocolConnection (MCP over SSE)"]
+        CloudServer["Reeve MCP Server (mcp.reeve.co.in)"]
+    end
+
+    subgraph ExplanationLayer["Human-Centered Explanation Layer"]
+        Observer["SessionActionObserver (Evidence Collector)"]
+        LayerOrchestrator["HumanCenteredExplanationLayer"]
+        HumanizerService["HumanExplanationService (Prompt Engine)"]
+    end
+
+    subgraph ToolsRuntime["Tool Execution Runtime (toolsService.ts)"]
+        ToolsService["IToolsService.invokeTool"]
+        ToolRegistry["Language Model Tools (file_edit, terminal, etc.)"]
+    end
+
+    %% Flows
+    UserPrompt --> MemoryInjector
+    MemoryInjector -- "1. Query Memory" --> SSEConn
+    SSEConn <--> CloudServer
+    MemoryInjector -- "2. Injected Memory + Prompt" --> ChatParticipant
+    ChatParticipant --> CopilotModel
+    CopilotModel -- "3. Tool Invocation Request" --> ToolsService
+
+    ToolsService -- "4. onBeforeToolAction" --> LayerOrchestrator
+    LayerOrchestrator --> Observer
+    LayerOrchestrator -- "5. Explain with Evidence" --> HumanizerService
+    HumanizerService -- "vscode.lm call" --> CopilotModel
+    HumanizerService -- "6. Stream Explanation" --> ChatStream
+    LayerOrchestrator -. "Action Context" .-> ApprovalCard
+
+    ToolsService -- "7. Execute Tool" --> ToolRegistry
+    ToolRegistry -- "8. Tool Result / Error" --> ToolsService
+    ToolsService -- "9. onAfterToolAction" --> LayerOrchestrator
+
+    ChatParticipant -- "10. finalizeSession" --> LayerOrchestrator
+    LayerOrchestrator -- "11. Post-Execution Summary" --> ChatStream
+    ChatParticipant -- "12. recordInteraction / recordAgentResponse" --> SSEConn
+```
+
+---
+
+## Subsystem Breakdown
+
+### 1. Persistent Long-Term Memory Subsystem
+
+The memory subsystem interfaces with the Reeve Cloud MCP Server over Server-Sent Events (SSE) with HTTP POST message transport.
+
+* **Encapsulated Recall (`preparePromptWithMemory`)**:
+  Before the model receives the prompt, Reeve queries `retrieve_memory_context` with the user request and active workspace namespace. If relevant architectural decisions or constraints exist, they are injected into the prompt with strict adherence directives.
+* **Citation Rendering (`renderMemoryCitation`)**:
+  Recalled memories display an attribution badge (`🧠 Recalled from Reeve Long-Term Memory`) directly in the chat UI.
+* **Autonomous Interaction Logging (`recordInteraction` & `recordAgentResponse`)**:
+  Prompts, file attachments (via `extractAttachmentText`), and agent responses are stored asynchronously in the background.
 
 ```text
 Reeve Client                         Reeve MCP Server
@@ -381,12 +454,48 @@ Reeve Client                         Reeve MCP Server
      │◄─── SSE message ────────────────────│
      │                                      │
      │──── POST /messages ─────────────────►│
-     │     tools/call                       │
+     │     tools/call (retrieve_memory)     │
      │                                      │
      │◄─── SSE message ────────────────────│
      │     result                           │
      └──────────────────────────────────────┘
 ```
+
+---
+
+### 2. Human-Centered Explanation Subsystem
+
+The explanation layer eliminates synthetic heuristic guessing (~1,000 lines of regex/AST rules) in favor of a lightweight, model-driven, evidence-based pipeline.
+
+* **Action Observation (`SessionActionObserver`)**:
+  - Intercepts tool calls and classifies them into `FileEdit`, `FileCreate`, `FileDelete`, `ShellCommand`, `TestRun`, or `CodebaseSearch`.
+  - Filters out read-only tools (`read_file`, `grep_search`, `list_dir`) so developer focus is never interrupted by search chatter.
+  - Assembles raw, unadulterated evidence: target path, patch/diff, command string, execution result, and relevant Reeve memory.
+* **Lifecycle Orchestration (`HumanCenteredExplanationLayer`)**:
+  - Manages per-session explanation lifecycles tied to VS Code's chat request sessions.
+  - Automatically resolves active sessions even when tool invocation tokens omit explicit conversation IDs.
+  - Streams explanations directly to the user's chat response stream.
+* **Evidence-Grounded Prompting (`HumanExplanationService`)**:
+  - Submits structured JSON evidence and a concise prompt to the active Copilot chat model via `vscode.lm`.
+  - Enforces strict rules: no boilerplate headings, no raw command echoing, no fabricated motives (e.g. no fake "duplicated logic" or generic "lookaround assertion" claims).
+  - Truncates oversized diffs and shell outputs to prevent context window exhaustion.
+
+---
+
+### 3. Tool Interception & Approval Integration
+
+* **Pre-Execution Streaming**:
+  Inside `toolsService.ts`, `invokeTool` asynchronously awaits `reeveClient.onBeforeToolAction`. The generated explanation streams to the chat window and informs the action description in the tool approval card before the tool runs.
+* **Post-Execution Verification**:
+  Once the tool completes (or throws), `onAfterToolAction` records the actual outcome (exit codes, stdout, or diagnostics). The model uses this evidence in `finalizeSession` to explain the practical effect and verify results.
+
+---
+
+### 4. Fail-Safe Architectural Guarantees
+
+* **Non-Blocking Execution**: All Reeve MCP calls and LLM explanation requests run within isolated `try/catch` boundaries.
+* **Graceful Degradation**: If the Reeve MCP server is offline, disabled, or network-constrained, Copilot continues normal code generation and tool invocation without interruption.
+* **Zero Identity Prompt Pollution**: Copilot's core system prompts in `copilotIdentity.tsx`, authentication tokens, entitlement checks, and model family configurations remain untouched.
 
 ---
 
