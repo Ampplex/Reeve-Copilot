@@ -1,166 +1,533 @@
-# Reeve Copilot
+# Reeve
 
-**Reeve Copilot** is a VS Code-based AI coding assistant with persistent long-term memory, powered by [Reeve](https://mcp.reeve.co.in). It extends GitHub Copilot Chat with the ability to remember your conversations, preferences, and project context across sessions — so it gets smarter the more you use it.
+**Reeve** is a developer-focused AI coding environment built on Code - OSS, designed to make coding agents more understandable, context-aware, and useful over long-running software projects.
 
-## How It Works
+Reeve combines:
 
-Reeve Copilot integrates with the **Reeve MCP Server** using the Model Context Protocol (MCP) over Server-Sent Events (SSE). Every time you chat:
+- **Persistent project memory** powered by [Reeve](https://mcp.reeve.co.in)
+- **GitHub Copilot model integration** for AI coding workflows
+- **Human-centered agent responses** that explain what changed, why, impact, and trade-offs
+- **Live architecture visualization** for understanding how code and agent changes affect the system
+- **Temporal project knowledge** so current decisions can supersede outdated ones instead of polluting the agent's context
 
-1. **Your message is stored** in Reeve's graph-based memory (Neo4j)
-2. **Relevant past context** is retrieved and injected into the prompt
-3. **The AI response is also stored** — building a bidirectional memory loop
+The goal is simple:
 
-```
-┌──────────────────────────────────────────────────┐
-│                  Reeve Copilot                   │
-│                                                  │
-│  User prompt ──► queryMemory() ──► Reeve MCP     │
-│       │              │             (SSE + JSON-RPC)
-│       │              ▼                           │
-│       │     Past context injected                │
-│       │         into prompt                      │
-│       ▼                                          │
-│  Copilot LLM generates response                 │
-│       │                                          │
-│       ▼                                          │
-│  storeMemory() ──► Reeve MCP                     │
-│  (user msg + AI response persisted)              │
-└──────────────────────────────────────────────────┘
-```
+> **Your coding agent should remember your codebase, understand its architecture, and explain its decisions.**
 
-## Setup
+---
 
-### Prerequisites
+## Why Reeve?
 
-- **Node.js** v22+ (recommend using [fnm](https://github.com/Schniz/fnm))
-- **Reeve API Key** — get one from [Reeve](https://mcp.reeve.co.in)
+Long-running coding agents accumulate conversations, tool output, repository context, previous assumptions, and historical decisions. As this context grows, important information can become difficult to retrieve reliably.
 
-### Build from Source
+Reeve addresses this with persistent, temporal project memory.
 
-```bash
-# Clone the repository
-git clone https://github.com/Ampplex/Reeve-Copilot.git
-cd Reeve-Copilot/vscode
+Instead of relying only on the current agent context:
 
-# Install dependencies
-npm install
-
-# Build the Copilot extension
-cd extensions/copilot
-npm install
-node .esbuild.mts --dev
-
-# Run Reeve Copilot
-cd ../..
-./scripts/code.sh
+```text
+Conversation
++ Tool output
++ Current files
+        ↓
+      Agent
 ```
 
-### Configure Reeve
+Reeve adds durable project knowledge:
 
-Open Settings (`Cmd+,`) and search for `reeve`:
-
-| Setting | Description | Default |
-|---------|-------------|---------|
-| `github.copilot.reeve.enabled` | Enable/disable Reeve memory | `true` |
-| `github.copilot.reeve.serverUrl` | Reeve MCP server URL | `https://mcp.reeve.co.in` |
-| `github.copilot.reeve.apiKey` | Your Reeve API key / auth token | — |
-
-Alternatively, set the `REEVE_API_KEY` or `REEVE_AUTH_TOKEN` environment variable.
-
-## Where Reeve Copilot Files Live
-
-All Reeve-specific integration code is inside `extensions/copilot/src/`:
-
+```text
+Current task
+     +
+Current code
+     +
+Relevant Reeve memory
+     ↓
+    Agent
 ```
+
+Reeve can retain information such as:
+
+* architectural decisions
+* project constraints
+* implementation conventions
+* previous changes
+* historical context
+* known issues
+* relationships between components
+
+Because the memory is temporal, newer facts can supersede older decisions instead of leaving the agent with contradictory context.
+
+---
+
+# Human-Centered Coding Agent
+
+Reeve is designed around a simple principle:
+
+> **The developer should understand the agent's decisions rather than blindly approve them.**
+
+Instead of:
+
+```text
+Implemented authentication.
+```
+
+Reeve aims to provide structured explanations such as:
+
+```text
+WHAT I FOUND
+
+Authentication is already centralized in AuthMiddleware.
+
+WHAT I CHANGED
+
+Extended the existing middleware instead of introducing
+a second authentication path.
+
+WHY
+
+The existing architecture already uses this boundary for
+protected routes.
+
+IMPACT
+
+3 files changed
+2 tests added
+1 authentication path simplified
+
+TRADE-OFF
+
+The middleware now owns slightly more logic, but
+authentication remains centralized.
+
+[View Diff] [View Architecture]
+```
+
+The exact presentation evolves with the agent interface, but the goal is consistent:
+
+**What → Why → Evidence → Impact → Trade-offs**
+
+Reeve does not expose hidden chain-of-thought. It surfaces concise, reviewable reasoning and supporting project context.
+
+---
+
+# Architecture Understanding
+
+Reeve includes a live architecture view inspired by tools such as [GitDiagram](https://gitdiagram.com/).
+
+The architecture view is intended to help developers understand:
+
+* project structure
+* service and module relationships
+* dependencies
+* API flows
+* important components
+* architectural impact of agent changes
+
+Conceptually:
+
+```text
+                API
+                 │
+                 ▼
+            Controller
+                 │
+                 ▼
+             Service
+              │    │
+              ▼    ▼
+            Cache  Database
+```
+
+As the agent changes the codebase, the architecture view can evolve with it.
+
+Future architecture features include:
+
+```text
+BEFORE
+
+API → Controller → Service → Database
+
+
+PROPOSED
+
+API → Controller → Service → Cache → Database
+```
+
+This allows developers to understand not only:
+
+> "What lines changed?"
+
+but also:
+
+> **"What changed in my system?"**
+
+---
+
+# Reeve + GitHub Copilot
+
+Reeve is designed to work with the existing GitHub Copilot model and agent infrastructure available in the Code - OSS environment.
+
+The project intentionally does **not** implement a separate Copilot authentication or entitlement system.
+
+The existing Copilot integration remains responsible for:
+
+* GitHub authentication
+* Copilot authentication
+* Copilot entitlement
+* model availability
+* model selection
+* Copilot usage limits
+
+Reeve adds capabilities around the agent, including project memory and architecture understanding.
+
+Conceptually:
+
+```text
+                    Reeve
+                      │
+       ┌──────────────┼──────────────┐
+       │              │              │
+   Persistent     Architecture   Human-centered
+     Memory          Graph          Agent UX
+       │              │              │
+       └──────────────┼──────────────┘
+                      │
+                 Coding Agent
+                      │
+              Copilot model
+```
+
+Reeve is an independent project and is not an official Microsoft or GitHub product.
+
+---
+
+# How Memory Works
+
+Reeve integrates with the **Reeve MCP Server** using the Model Context Protocol (MCP) over Server-Sent Events (SSE).
+
+A typical memory flow is:
+
+```text
+┌──────────────────────────────────────────────────────┐
+│                     Reeve                            │
+│                                                      │
+│  User prompt                                         │
+│       │                                              │
+│       ▼                                              │
+│  Retrieve relevant project memory                   │
+│       │                                              │
+│       ▼                                              │
+│  Durable context added to the agent workflow         │
+│       │                                              │
+│       ▼                                              │
+│  Copilot model                                       │
+│       │                                              │
+│       ▼                                              │
+│  Agent response / code changes                       │
+│       │                                              │
+│       ▼                                              │
+│  Store durable facts / decisions / history           │
+└──────────────────────────────────────────────────────┘
+```
+
+The objective is **selective retrieval**, not dumping an entire project's history into every prompt.
+
+---
+
+# MCP Memory Operations
+
+The current integration exposes Reeve-backed operations such as:
+
+| Operation                 | Purpose                           |
+| ------------------------- | --------------------------------- |
+| `retrieve_memory_context` | Retrieve relevant project memory  |
+| `store_memory`            | Persist durable project knowledge |
+| `query_memory`            | Perform structured memory queries |
+
+Memory can contain temporal information such as:
+
+```text
+Decision:
+PostgreSQL is the source of truth for transactions.
+
+Constraint:
+Payment operations must remain idempotent.
+
+History:
+Authentication was moved from controllers into middleware.
+
+Supersession:
+MongoDB → PostgreSQL
+```
+
+This allows the agent to distinguish current knowledge from historical or superseded information.
+
+---
+
+# Project Structure
+
+Reeve-specific integration currently lives inside:
+
+```text
 extensions/copilot/
 ├── src/
 │   ├── platform/reeve/
 │   │   ├── common/
-│   │   │   └── reeveClient.ts          # IReeveClient interface & types
+│   │   │   └── reeveClient.ts
 │   │   ├── node/
-│   │   │   └── reeveClient.ts          # MCP SSE client implementation
+│   │   │   └── reeveClient.ts
 │   │   └── test/node/
-│   │       └── reeveClient.spec.ts     # Unit tests (11 tests)
+│   │       └── reeveClient.spec.ts
 │   │
 │   └── extension/
 │       ├── conversation/vscode-node/
-│       │   └── chatParticipants.ts     # Memory injection & persistence in chat
+│       │   └── chatParticipants.ts
 │       ├── tools/node/
-│       │   ├── reeveSearchMemoryTool.ts    # LLM tool: copilot_reeveSearchMemory
+│       │   ├── reeveSearchMemoryTool.ts
 │       │   └── test/
 │       │       └── reeveSearchMemoryTool.spec.ts
 │       └── extension/vscode-node/
-│           └── services.ts            # DI registration for IReeveClient
+│           └── services.ts
 │
-├── package.json                       # Extension manifest & settings schema
-└── .esbuild.mts                       # Build script
+└── package.json
 ```
 
 ### Key Files
 
-| File | Purpose |
-|------|---------|
-| [`platform/reeve/node/reeveClient.ts`](vscode/extensions/copilot/src/platform/reeve/node/reeveClient.ts) | Core MCP client — SSE connection, 3-way handshake, `tools/call` JSON-RPC, Bearer auth |
-| [`platform/reeve/common/reeveClient.ts`](vscode/extensions/copilot/src/platform/reeve/common/reeveClient.ts) | `IReeveClient` service interface and type definitions |
-| [`conversation/vscode-node/chatParticipants.ts`](vscode/extensions/copilot/src/extension/conversation/vscode-node/chatParticipants.ts) | Hooks into Copilot chat — queries memory before each prompt, stores both user messages and AI responses |
-| [`tools/node/reeveSearchMemoryTool.ts`](vscode/extensions/copilot/src/extension/tools/node/reeveSearchMemoryTool.ts) | Registers `copilot_reeveSearchMemory` as a tool the LLM can invoke autonomously |
-| [`extension/vscode-node/services.ts`](vscode/extensions/copilot/src/extension/extension/vscode-node/services.ts) | Dependency injection — registers `ReeveClient` as the `IReeveClient` singleton |
+| File                                                                                                                                   | Purpose                                         |
+| -------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| [`platform/reeve/node/reeveClient.ts`](vscode/extensions/copilot/src/platform/reeve/node/reeveClient.ts)                               | MCP client and SSE transport                    |
+| [`platform/reeve/common/reeveClient.ts`](vscode/extensions/copilot/src/platform/reeve/common/reeveClient.ts)                           | Reeve service interface and types               |
+| [`conversation/vscode-node/chatParticipants.ts`](vscode/extensions/copilot/src/extension/conversation/vscode-node/chatParticipants.ts) | Integration with Copilot conversation workflows |
+| [`tools/node/reeveSearchMemoryTool.ts`](vscode/extensions/copilot/src/extension/tools/node/reeveSearchMemoryTool.ts)                   | Reeve memory tool exposed to the coding agent   |
+| [`extension/vscode-node/services.ts`](vscode/extensions/copilot/src/extension/extension/vscode-node/services.ts)                       | Reeve dependency-injection registration         |
 
-## Architecture
+---
 
-### MCP over SSE Protocol Flow
+# Setup
 
-```
-Client (Reeve Copilot)                    Server (mcp.reeve.co.in)
-        │                                          │
-        │──── GET /sse ────────────────────────────►│
-        │     Authorization: Bearer <token>         │
-        │                                          │
-        │◄─── SSE: endpoint event ─────────────────│
-        │     data: /messages?sessionId=xxx         │
-        │                                          │
-        │──── POST /messages?sessionId=xxx ────────►│
-        │     { "method": "initialize", ... }       │
-        │                                          │
-        │◄─── SSE: message event ──────────────────│
-        │     { "result": { capabilities: ... } }   │
-        │                                          │
-        │──── POST /messages?sessionId=xxx ────────►│
-        │     { "method": "notifications/initialized" }
-        │                                          │
-        │──── POST /messages?sessionId=xxx ────────►│
-        │     { "method": "tools/call",             │
-        │       "params": { "name": "retrieve_memory_context",
-        │                   "arguments": { ... } } }│
-        │                                          │
-        │◄─── SSE: message event ──────────────────│
-        │     { "result": { "content": [...] } }    │
-        └──────────────────────────────────────────┘
+## Prerequisites
+
+* Node.js 22+
+* [fnm](https://github.com/Schniz/fnm) recommended
+* A Reeve API key
+* A GitHub account with the appropriate Copilot access for Copilot-powered workflows
+
+## Build from Source
+
+```bash
+git clone https://github.com/Ampplex/Reeve-Copilot.git
+cd Reeve-Copilot/vscode
+
+fnm use
+npm install
 ```
 
-### Memory Tools
+Build/watch the repository using the VS Code development workflow.
 
-| MCP Tool | Description |
-|----------|-------------|
-| `retrieve_memory_context` | Query past memories by question + speaker |
-| `store_memory` | Persist text (conversations, facts) with speaker partition |
-| `query_memory` | Structured memory query |
+For Copilot development, follow the repository's current Copilot/Code - OSS development instructions before launching the application.
 
-## Running Tests
+Run the development build with:
+
+```bash
+./scripts/code.sh
+```
+
+---
+
+# Configure Reeve
+
+Open VS Code settings and search for `reeve`.
+
+| Setting                          | Description                          | Default                   |
+| -------------------------------- | ------------------------------------ | ------------------------- |
+| `github.copilot.reeve.enabled`   | Enable/disable Reeve memory          | `true`                    |
+| `github.copilot.reeve.serverUrl` | Reeve MCP server URL                 | `https://mcp.reeve.co.in` |
+| `github.copilot.reeve.apiKey`    | Reeve API key / authentication token | —                         |
+
+Alternatively:
+
+```bash
+export REEVE_API_KEY="..."
+```
+
+or:
+
+```bash
+export REEVE_AUTH_TOKEN="..."
+```
+
+---
+
+# Architecture
+
+## MCP over SSE
+
+```text
+Reeve Client                         Reeve MCP Server
+     │                                      │
+     │──── GET /sse ───────────────────────►│
+     │     Authorization: Bearer <token>    │
+     │                                      │
+     │◄─── SSE endpoint event ──────────────│
+     │                                      │
+     │──── POST /messages ─────────────────►│
+     │     initialize                       │
+     │                                      │
+     │◄─── SSE message ────────────────────│
+     │                                      │
+     │──── POST /messages ─────────────────►│
+     │     tools/call                       │
+     │                                      │
+     │◄─── SSE message ────────────────────│
+     │     result                           │
+     └──────────────────────────────────────┘
+```
+
+---
+
+# Design Principles
+
+### Fail-safe
+
+If Reeve is:
+
+* disabled
+* unavailable
+* unreachable
+* slow
+* misconfigured
+
+the existing coding-agent workflow should continue operating normally.
+
+### Selective memory
+
+Reeve should retrieve relevant durable knowledge rather than inject an entire project history into every model request.
+
+### Temporal knowledge
+
+Current decisions should be distinguishable from historical or superseded decisions.
+
+### Human-centered interaction
+
+Agent actions should be understandable and reviewable.
+
+### Architecture awareness
+
+Developers should be able to inspect the architecture affected by agent changes.
+
+### Minimal interference with Copilot
+
+Existing GitHub Copilot authentication, entitlement, model access, and billing behavior are intentionally left intact.
+
+---
+
+# Running Tests
 
 ```bash
 cd extensions/copilot
-npx vitest run src/platform/reeve/test/node/reeveClient.spec.ts
-npx vitest run src/extension/tools/node/test/reeveSearchMemoryTool.spec.ts
+
+npx vitest run \
+  src/platform/reeve/test/node/reeveClient.spec.ts
+
+npx vitest run \
+  src/extension/tools/node/test/reeveSearchMemoryTool.spec.ts
 ```
 
-## Design Principles
+---
 
-- **Fail-safe**: If Reeve is down, disabled, or times out (1500ms), Copilot works normally
-- **Zero auth changes**: No modifications to GitHub Copilot's authentication, token handling, or billing
-- **Native protocol**: MCP SSE + JSON-RPC implemented with native `fetch` — no external SDK dependencies
-- **Bidirectional memory**: Both user prompts and AI responses are stored for full conversation recall
+# Roadmap
 
-## License
+## Persistent Engineering Memory
 
-Copyright (c) 2026 Ankesh Kumar. All rights reserved. This is proprietary software — unauthorized copying, distribution, or modification is strictly prohibited.
+* Automatic retrieval of relevant architectural decisions
+* Current-vs-superseded fact resolution
+* Project conventions
+* Constraint tracking
+* Cross-session agent memory
+
+## Human-Centered Agent UX
+
+* Decision summaries
+* Evidence/provenance
+* Impact summaries
+* Trade-off explanations
+* Review checkpoints
+* Agent timelines
+
+## Live Architecture
+
+* Repository architecture graph
+* Component relationships
+* Dependency visualization
+* Architecture diffs
+* Agent impact previews
+* Interactive architecture exploration
+
+## Future
+
+```text
+                    Developer
+                        │
+                        ▼
+                Reeve Coding Agent
+                        │
+        ┌───────────────┼────────────────┐
+        │               │                │
+      Memory        Architecture      Agent UX
+        │               │                │
+        └───────────────┼────────────────┘
+                        │
+                 Coding workflow
+                        │
+                Copilot / AI model
+```
+
+---
+
+# Relationship to VS Code and GitHub Copilot
+
+Reeve is built on the open-source [Code - OSS](https://github.com/microsoft/vscode) repository.
+
+Code - OSS is available under the MIT license. Reeve includes modifications and additions to the upstream source and must retain the applicable upstream copyright and license notices.
+
+Reeve is **not affiliated with, endorsed by, or officially supported by Microsoft or GitHub**.
+
+GitHub Copilot services and trademarks are governed separately by GitHub's applicable terms and policies. Reeve does not represent that GitHub endorses or approves the project.
+
+---
+
+# Licensing
+
+## Upstream Code - OSS / Copilot Components
+
+The applicable upstream Microsoft source is distributed under the MIT license. The original copyright and license notices are retained in accordance with that license.
+
+See:
+
+```text
+LICENSE.txt
+```
+
+for the upstream license.
+
+## Reeve-specific Code
+
+Original Reeve code and proprietary additions are Copyright (c) 2026 Ankesh Kumar and are distributed under the terms specified by Reeve.
+
+See:
+
+```text
+REEVE-LICENSE.txt
+```
+
+for the license governing Reeve-specific code.
+
+**The proprietary license for Reeve-specific code does not remove or restrict rights granted by upstream open-source licenses.**
+
+---
+
+# Disclaimer
+
+Reeve is an independent developer project.
+
+It is not an official Microsoft Visual Studio Code distribution and is not an official GitHub Copilot product.

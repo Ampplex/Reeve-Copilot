@@ -1,0 +1,65 @@
+REEVE PROPRIETARY LICENSE
+
+Copyright (c) 2026 Ankesh Kumar. All rights reserved.
+
+NOTICE: This license applies exclusively to original Reeve code and proprietary
+additions. It does not apply to upstream Code - OSS or Copilot components, which
+are governed by their own licenses (see LICENSE.txt).
+
+COVERED FILES
+
+This license covers all original Reeve code, including but not limited to:
+
+  - extensions/copilot/src/platform/reeve/  (all files)
+  - Reeve-specific modifications to existing files
+  - Reeve-specific build configurations and assets
+  - Any file containing the header:
+    "Copyright (c) 2026 Ankesh Kumar"
+
+TERMS
+
+1. RESTRICTIONS
+
+   You may NOT, without prior written permission from the copyright holder:
+
+   a. Copy, reproduce, or duplicate the covered code.
+   b. Distribute, publish, or make the covered code available to third parties.
+   c. Modify, adapt, or create derivative works based on the covered code.
+   d. Reverse-engineer, decompile, or disassemble the covered code.
+   e. Sublicense, sell, lease, or otherwise transfer the covered code.
+   f. Use the covered code in any commercial product or service.
+
+2. PERMITTED USE
+
+   The covered code may only be used:
+
+   a. By authorized individuals with explicit written permission.
+   b. As part of the official Reeve product distribution.
+
+3. NO WARRANTY
+
+   THE COVERED CODE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+   EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+   MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+
+4. LIMITATION OF LIABILITY
+
+   IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES
+   OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+   ARISING FROM, OUT OF OR IN CONNECTION WITH THE COVERED CODE OR THE USE
+   OR OTHER DEALINGS IN THE COVERED CODE.
+
+5. UPSTREAM RIGHTS PRESERVED
+
+   This license does not remove, restrict, or modify any rights granted by
+   upstream open-source licenses (including the MIT License) that apply to
+   other components in this repository. Recipients retain all rights granted
+   to them under those upstream licenses.
+
+6. TERMINATION
+
+   Any unauthorized use automatically terminates this license. Upon
+   termination, you must destroy all copies of the covered code in your
+   possession.
+
+For licensing inquiries, contact the copyright holder.
