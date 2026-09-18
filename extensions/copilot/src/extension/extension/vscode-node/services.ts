@@ -153,6 +153,8 @@ import { AutomaticInstructionsCollector, IAutomaticInstructionsCollector } from 
 import { GrepResultService, IGrepResultService } from '../../tools/node/grepResultService';
 import { IRegionContextProviderService } from '../../../platform/languageContextProvider/common/regionContextProvider';
 import { ContainerContextProviderService } from '../../typescriptContext/vscode-node/regionContextProvider';
+import { IReeveClient } from '../../../platform/reeve/common/reeveClient';
+import { ReeveClient } from '../../../platform/reeve/node/reeveClient';
 
 
 // ###########################################################################################
@@ -175,6 +177,7 @@ export function registerServices(builder: IInstantiationServiceBuilder, extensio
 	builder.define(IRegionContextProviderService, new SyncDescriptor(ContainerContextProviderService));
 	builder.define(ITokenizerProvider, new SyncDescriptor(TokenizerProvider, [true]));
 	builder.define(IToolsService, new SyncDescriptor(ToolsService));
+	builder.define(IReeveClient, new SyncDescriptor(ReeveClient));
 	builder.define(IToolDeferralService, new ToolDeferralService());
 	builder.define(IMemoryCleanupService, new SyncDescriptor(MemoryCleanupService));
 	builder.define(IChatDiskSessionResources, new SyncDescriptor(ChatDiskSessionResources));

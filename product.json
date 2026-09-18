@@ -1,8 +1,8 @@
 {
-	"nameShort": "Code - OSS",
-	"nameLong": "Code - OSS",
-	"applicationName": "code-oss",
-	"dataFolderName": ".vscode-oss",
+	"nameShort": "Reeve Copilot",
+	"nameLong": "Reeve Copilot",
+	"applicationName": "reeve-copilot",
+	"dataFolderName": ".reeve-copilot",
 	"sharedDataFolderName": ".vscode-oss-shared",
 	"win32MutexName": "vscodeoss",
 	"licenseName": "MIT",

@@ -76,6 +76,7 @@ export enum ToolName {
 	ExecutionSubagent = 'execution_subagent',
 	Skill = 'skill',
 	SessionStoreSql = 'session_store_sql',
+	ReeveSearchMemory = 'reeve_search_memory',
 	CoreOpenBrowserPage = 'open_browser_page',
 	CoreClickElement = 'click_element',
 	CoreScreenshotPage = 'screenshot_page',
@@ -138,6 +139,7 @@ export enum ContributedToolName {
 	SwitchAgent = 'copilot_switchAgent',
 	ResolveMemoryFileUri = 'copilot_resolveMemoryFileUri',
 	SessionStoreSql = 'copilot_sessionStoreSql',
+	ReeveSearchMemory = 'copilot_reeveSearchMemory',
 }
 
 export const byokEditToolNamesToToolNames = {
@@ -206,6 +208,7 @@ export const toolCategories: Record<ToolName, ToolCategory> = {
 	[ToolName.SearchSubagent]: ToolCategory.Core,
 	[ToolName.ExploreSubagent]: ToolCategory.Core,
 	[ToolName.ExecutionSubagent]: ToolCategory.Core,
+	[ToolName.ReeveSearchMemory]: ToolCategory.Core,
 
 	// already enabled only when tasks are enabled
 	[ToolName.CoreRunTask]: ToolCategory.Core,

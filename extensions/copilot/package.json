@@ -1,7 +1,7 @@
 {
   "name": "copilot-chat",
-  "displayName": "GitHub Copilot",
-  "description": "AI chat features powered by Copilot",
+  "displayName": "Reeve",
+  "description": "AI Coding Agent powered by GitHub Copilot models",
   "version": "0.67.0",
   "build": "1",
   "completionsCoreVersion": "1.378.1799",
@@ -172,6 +172,48 @@
             "query": {
               "type": "string",
               "description": "The query to search the codebase for. Should contain all relevant context. Should ideally be text that might appear in the codebase, such as function names, variable names, or comments."
+            }
+          },
+          "required": [
+            "query"
+          ]
+        }
+      },
+      {
+        "name": "copilot_reeveSearchMemory",
+        "toolReferenceName": "reeveSearchMemory",
+        "displayName": "Reeve Project Memory",
+        "icon": "$(history)",
+        "userDescription": "Query Reeve temporal project memory for architectural facts, engineering decisions, and codebase constraints.",
+        "modelDescription": "Query Reeve temporal project memory for relevant historical decisions, architecture patterns, constraints, and durable engineering facts. Use this tool when you need project-specific context beyond the visible code, such as: previous architecture decisions, project constraints, historical implementation decisions, current architectural facts, prior changes, or other durable engineering knowledge.\nReturns: Structurally-resolved facts and context from the project's temporal knowledge graph.\n\nInput fields:\n- query: Natural language description or question about the memory, decision, or architectural fact to search for.\n- namespace: (Optional) Project namespace to scope the search to (defaults to active workspace).\n- category: (Optional) Filter by category such as 'decision', 'constraint', 'architecture', or 'history'.\n- limit: (Optional) Maximum number of memory items to return (default 5).",
+        "when": "config.github.copilot.reeve.enabled",
+        "tags": [
+          "codesearch"
+        ],
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "description": "Natural language query or question to search project memory, engineering decisions, or architectural facts."
+            },
+            "namespace": {
+              "type": "string",
+              "description": "Optional project namespace to isolate memory per repository or module. Defaults to active workspace."
+            },
+            "category": {
+              "type": "string",
+              "enum": [
+                "decision",
+                "constraint",
+                "architecture",
+                "history"
+              ],
+              "description": "Optional category filter for memory records."
+            },
+            "limit": {
+              "type": "number",
+              "description": "Optional maximum number of records to retrieve (default 5)."
             }
           },
           "required": [
@@ -1360,7 +1402,7 @@
       {
         "id": "github.copilot.default",
         "name": "GitHubCopilot",
-        "fullName": "GitHub Copilot",
+        "fullName": "Reeve",
         "description": "%copilot.description%",
         "isDefault": true,
         "locations": [
@@ -1477,7 +1519,7 @@
       {
         "id": "github.copilot.editingSession",
         "name": "GitHubCopilot",
-        "fullName": "GitHub Copilot",
+        "fullName": "Reeve",
         "description": "%copilot.edits.description%",
         "isDefault": true,
         "locations": [
@@ -1490,7 +1532,7 @@
       {
         "id": "github.copilot.editingSessionEditor",
         "name": "GitHubCopilot",
-        "fullName": "GitHub Copilot",
+        "fullName": "Reeve",
         "description": "%copilot.edits.description%",
         "isDefault": true,
         "locations": [
@@ -1501,7 +1543,7 @@
       {
         "id": "github.copilot.editsAgent",
         "name": "agent",
-        "fullName": "GitHub Copilot",
+        "fullName": "Reeve",
         "description": "%copilot.agent.description%",
         "locations": [
           "panel"
@@ -1607,7 +1649,7 @@
       {
         "id": "github.copilot.notebook",
         "name": "GitHubCopilot",
-        "fullName": "GitHub Copilot",
+        "fullName": "Reeve",
         "description": "%copilot.description%",
         "isDefault": true,
         "locations": [
@@ -1628,7 +1670,7 @@
       {
         "id": "github.copilot.notebookEditorAgent",
         "name": "GitHubCopilot",
-        "fullName": "GitHub Copilot",
+        "fullName": "Reeve",
         "description": "%copilot.description%",
         "isDefault": true,
         "locations": [
@@ -3198,6 +3240,31 @@
         "title": "GitHub Copilot Chat",
         "id": "stable",
         "properties": {
+          "github.copilot.reeve.enabled": {
+            "type": "boolean",
+            "default": true,
+            "markdownDescription": "Enable Reeve temporal project memory integration."
+          },
+          "github.copilot.reeve.endpoint": {
+            "type": "string",
+            "default": "https://mcp.reeve.co.in",
+            "markdownDescription": "Endpoint URL for the Reeve temporal memory service."
+          },
+          "github.copilot.reeve.apiKey": {
+            "type": "string",
+            "default": "",
+            "markdownDescription": "API key for Reeve authentication (from https://mcp.reeve.co.in). Can also be set via REEVE_API_KEY environment variable."
+          },
+          "github.copilot.reeve.namespace": {
+            "type": "string",
+            "default": "",
+            "markdownDescription": "Project namespace to isolate Reeve memory per codebase. If empty, automatically detected from the active workspace folder."
+          },
+          "github.copilot.reeve.timeoutMs": {
+            "type": "number",
+            "default": 5000,
+            "markdownDescription": "Timeout in milliseconds for Reeve memory API requests."
+          },
           "github.copilot.chat.backgroundAgent.enabled": {
             "type": "boolean",
             "default": true,

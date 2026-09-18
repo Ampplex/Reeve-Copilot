@@ -39,4 +39,5 @@ import './toolSearchTool';
 import './viewImageTool';
 import './vscodeAPITool';
 import './vscodeCmdTool';
+import './reeveSearchMemoryTool';
 

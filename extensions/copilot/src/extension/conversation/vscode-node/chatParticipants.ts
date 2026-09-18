@@ -15,10 +15,12 @@ import { IAutomodeService, reportAutoModeRouting } from '../../../platform/endpo
 import { IExperimentationService } from '../../../platform/telemetry/common/nullExperimentationService';
 import { ITelemetryService } from '../../../platform/telemetry/common/telemetry';
 import { ChatExtPerfMark, clearChatExtMarks, markChatExt } from '../../../util/common/performance';
+import { ChatResponseStreamImpl } from '../../../util/common/chatResponseStreamImpl';
 import { Disposable, DisposableStore, IDisposable } from '../../../util/vs/base/common/lifecycle';
 import { autorun } from '../../../util/vs/base/common/observableInternal';
 import { generateUuid } from '../../../util/vs/base/common/uuid';
 import { IInstantiationService } from '../../../util/vs/platform/instantiation/common/instantiation';
+import { IReeveClient } from '../../../platform/reeve/common/reeveClient';
 import { ChatRequest } from '../../../vscodeTypes';
 import { Intent, agentsToCommands } from '../../common/constants';
 import { ICopilotChatResultIn } from '../../prompt/common/conversation';
@@ -74,6 +76,7 @@ class ChatAgents implements IDisposable {
 		@IAutomodeService private readonly automodeService: IAutomodeService,
 		@IPromptCategorizerService private readonly promptCategorizerService: IPromptCategorizerService,
 		@ITelemetryService private readonly telemetryService: ITelemetryService,
+		@IReeveClient private readonly reeveClient: IReeveClient,
 		@IChatSessionService chatSessionService: IChatSessionService,
 	) {
 		this._disposables.add(chatSessionService.onDidDisposeChatSession(sessionId => clearChatExtMarks(sessionId)));
@@ -249,6 +252,42 @@ Learn more about [GitHub Copilot](https://docs.github.com/copilot/using-github-c
 					this.promptCategorizerService.categorizePrompt(request, context, telemetryMessageId);
 				}
 
+				// Reeve integration: Store every user prompt and query Reeve memory to selectively inject context
+				if (request.prompt && this.reeveClient?.isEnabled()) {
+					// Store user query to Reeve (non-blocking fail-safe)
+					this.reeveClient.storeMemory?.({
+						fact: request.prompt,
+						speaker: 'user',
+					})?.catch(() => { /* non-blocking fail-safe */ });
+
+					// Query Reeve for relevant durable project context with bounded timeout
+					try {
+						const memoryPromise = this.reeveClient.queryMemory({
+							query: request.prompt,
+							limit: 3,
+						}, token);
+
+						// Bounded retrieval timeout (max 1500ms) so user chat experience is never stalled
+						const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 1500));
+						const memoryResult = await Promise.race([memoryPromise, timeoutPromise]);
+
+						if (memoryResult && memoryResult.success && memoryResult.items.length > 0) {
+							const contextEntries = memoryResult.items.map(item => {
+								const cat = item.category ? ` [${item.category}]` : '';
+								return `• ${item.content}${cat}`;
+							}).join('\n');
+
+							const injectedContext = `[Reeve Durable Project Context (namespace: "${memoryResult.namespace}"):\n${contextEntries}]\n\n`;
+							request = {
+								...request,
+								prompt: `${injectedContext}${request.prompt}`
+							};
+						}
+					} catch {
+						// Fail-safe: Reeve memory retrieval must never block or break normal Copilot flow
+					}
+				}
+
 				const defaultIntentId = typeof defaultIntentIdOrGetter === 'function' ?
 					defaultIntentIdOrGetter(request) :
 					defaultIntentIdOrGetter;
@@ -259,19 +298,46 @@ Learn more about [GitHub Copilot](https://docs.github.com/copilot/using-github-c
 					commandsForAgent[request.command] :
 					defaultIntentId;
 
-				const handler = this.instantiationService.createInstance(ChatParticipantRequestHandler, context.history, request, stream, token, { agentName: name, agentId: id, intentId }, () => context.yieldRequested, telemetryMessageId);
+				// Reeve integration: Intercept every agent response part streamed to the user
+				const agentResponseChunks: string[] = [];
+				const spiedStream = ChatResponseStreamImpl.spy(stream, (part) => {
+					if (part instanceof vscode.ChatResponseMarkdownPart) {
+						const text = typeof part.value === 'string' ? part.value : part.value?.value;
+						if (text) {
+							agentResponseChunks.push(text);
+						}
+					} else if ('value' in part && typeof (part as any).value === 'string') {
+						agentResponseChunks.push((part as any).value);
+					} else if ('value' in part && typeof (part as any).value?.value === 'string') {
+						agentResponseChunks.push((part as any).value.value);
+					}
+				});
 
-				let result = await handler.getResult();
+				const handler = this.instantiationService.createInstance(ChatParticipantRequestHandler, context.history, request, spiedStream, token, { agentName: name, agentId: id, intentId }, () => context.yieldRequested, telemetryMessageId);
 
-				// Auto-retry with Auto model when the setting is enabled and the handler signals it
-				if ((result as ICopilotChatResultIn).metadata?.shouldAutoSwitchToAuto) {
-					const previousModelId = request.model?.id;
-					const switchedRequest = await this.switchToAutoModel(request, stream, false);
-					if (switchedRequest.model?.id !== previousModelId) {
-						this.telemetryService.sendMSFTTelemetryEvent('chatRateLimitAction', { action: 'autoSwitch', modelId: previousModelId });
-						request = switchedRequest;
-						const retryHandler = this.instantiationService.createInstance(ChatParticipantRequestHandler, context.history, request, stream, token, { agentName: name, agentId: id, intentId }, () => context.yieldRequested, telemetryMessageId);
-						result = await retryHandler.getResult();
+				let result: vscode.ChatResult;
+				try {
+					result = await handler.getResult();
+
+					// Auto-retry with Auto model when the setting is enabled and the handler signals it
+					if ((result as ICopilotChatResultIn).metadata?.shouldAutoSwitchToAuto) {
+						const previousModelId = request.model?.id;
+						const switchedRequest = await this.switchToAutoModel(request, spiedStream, false);
+						if (switchedRequest.model?.id !== previousModelId) {
+							this.telemetryService.sendMSFTTelemetryEvent('chatRateLimitAction', { action: 'autoSwitch', modelId: previousModelId });
+							request = switchedRequest;
+							const retryHandler = this.instantiationService.createInstance(ChatParticipantRequestHandler, context.history, request, spiedStream, token, { agentName: name, agentId: id, intentId }, () => context.yieldRequested, telemetryMessageId);
+							result = await retryHandler.getResult();
+						}
+					}
+				} finally {
+					// Reeve integration: Persist full agent response to Reeve
+					const fullAgentResponse = agentResponseChunks.join('');
+					if (fullAgentResponse.trim() && this.reeveClient?.isEnabled()) {
+						this.reeveClient.storeMemory?.({
+							fact: fullAgentResponse.trim(),
+							speaker: 'agent',
+						})?.catch(() => { /* non-blocking fail-safe */ });
 					}
 				}
 

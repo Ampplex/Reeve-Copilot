@@ -251,136 +251,14 @@ function createCopilotSetupStep(id: string, button: string, when: string, includ
 
 export const walkthroughs: GettingStartedWalkthroughContent = [
 	{
-		id: 'Setup',
-		title: localize('gettingStarted.setup.title', "Get started with VS Code"),
-		description: localize('gettingStarted.setup.description', "Customize your editor, learn the basics, and start coding"),
-		isFeatured: true,
-		icon: setupIcon,
-		when: '!isWeb',
-		walkthroughPageTitle: localize('gettingStarted.setup.walkthroughPageTitle', 'Setup VS Code'),
-		next: 'Beginner',
-		content: {
-			type: 'steps',
-			steps: [
-				createCopilotSetupStep('CopilotSetupAnonymous', CopilotAnonymousButton, 'chatAnonymous && !chatSetupCompleted', true),
-				createCopilotSetupStep('CopilotSetupSignedOut', CopilotSignedOutButton, 'chatEntitlementSignedOut && !chatAnonymous && !github.copilot.hasByokModels', false),
-				createCopilotSetupStep('CopilotSetupComplete', CopilotCompleteButton, 'chatSetupCompleted && !chatSetupDisabled && (chatAnonymous || chatPlanPro || chatPlanProPlus || chatPlanMax || chatPlanBusiness || chatPlanEnterprise || chatPlanFree)', false),
-				createCopilotSetupStep('CopilotSetupSignedIn', CopilotSignedInButton, '!chatEntitlementSignedOut && (!chatSetupCompleted || chatSetupDisabled || chatPlanCanSignUp)', false),
-				{
-					id: 'pickColorTheme',
-					title: localize('gettingStarted.pickColor.title', "Choose your theme"),
-					description: localize('gettingStarted.pickColor.description.interpolated', "The right theme helps you focus on your code, is easy on your eyes, and is simply more fun to use.\n{0}", Button(localize('titleID', "Browse Color Themes"), 'command:workbench.action.selectTheme')),
-					completionEvents: [
-						'onSettingChanged:workbench.colorTheme',
-						'onCommand:workbench.action.selectTheme'
-					],
-					media: { type: 'markdown', path: 'theme_picker', }
-				},
-				{
-					id: 'videoTutorial',
-					title: localize('gettingStarted.videoTutorial.title', "Watch video tutorials"),
-					description: localize('gettingStarted.videoTutorial.description.interpolated', "Watch the first in a series of short & practical video tutorials for VS Code's key features.\n{0}", Button(localize('watch', "Watch Tutorial"), 'https://aka.ms/vscode-getting-started-video')),
-					media: { type: 'svg', altText: 'VS Code Settings', path: 'learn.svg' },
-				}
-			]
-		}
-	},
-
-	{
-		id: 'SetupWeb',
-		title: localize('gettingStarted.setupWeb.title', "Get Started with VS Code for the Web"),
-		description: localize('gettingStarted.setupWeb.description', "Customize your editor, learn the basics, and start coding"),
-		isFeatured: true,
-		icon: setupIcon,
-		when: 'isWeb',
-		next: 'Beginner',
-		walkthroughPageTitle: localize('gettingStarted.setupWeb.walkthroughPageTitle', 'Setup VS Code Web'),
-		content: {
-			type: 'steps',
-			steps: [
-				{
-					id: 'pickColorThemeWeb',
-					title: localize('gettingStarted.pickColor.title', "Choose your theme"),
-					description: localize('gettingStarted.pickColor.description.interpolated', "The right theme helps you focus on your code, is easy on your eyes, and is simply more fun to use.\n{0}", Button(localize('titleID', "Browse Color Themes"), 'command:workbench.action.selectTheme')),
-					completionEvents: [
-						'onSettingChanged:workbench.colorTheme',
-						'onCommand:workbench.action.selectTheme'
-					],
-					media: { type: 'markdown', path: 'theme_picker', }
-				},
-				{
-					id: 'menuBarWeb',
-					title: localize('gettingStarted.menuBar.title', "Just the right amount of UI"),
-					description: localize('gettingStarted.menuBar.description.interpolated', "The full menu bar is available in the dropdown menu to make room for your code. Toggle its appearance for faster access. \n{0}", Button(localize('toggleMenuBar', "Toggle Menu Bar"), 'command:workbench.action.toggleMenuBar')),
-					when: 'isWeb',
-					media: {
-						type: 'svg', altText: 'Comparing menu dropdown with the visible menu bar.', path: 'menuBar.svg'
-					},
-				},
-				{
-					id: 'extensionsWebWeb',
-					title: localize('gettingStarted.extensions.title', "Code with extensions"),
-					description: localize('gettingStarted.extensionsWeb.description.interpolated', "Extensions are VS Code's power-ups. A growing number are becoming available in the web.\n{0}", Button(localize('browsePopularWeb', "Browse Popular Web Extensions"), 'command:workbench.extensions.action.showPopularExtensions')),
-					when: 'workspacePlatform == \'webworker\'',
-					media: {
-						type: 'svg', altText: 'VS Code extension marketplace with featured language extensions', path: 'extensions-web.svg'
-					},
-				},
-				{
-					id: 'findLanguageExtensionsWeb',
-					title: localize('gettingStarted.findLanguageExts.title', "Rich support for all your languages"),
-					description: localize('gettingStarted.findLanguageExts.description.interpolated', "Code smarter with syntax highlighting, inline suggestions, linting and debugging. While many languages are built-in, many more can be added as extensions.\n{0}", Button(localize('browseLangExts', "Browse Language Extensions"), 'command:workbench.extensions.action.showLanguageExtensions')),
-					when: 'workspacePlatform != \'webworker\'',
-					media: {
-						type: 'svg', altText: 'Language extensions', path: 'languages.svg'
-					},
-				},
-				{
-					id: 'settingsSyncWeb',
-					title: localize('gettingStarted.settingsSync.title', "Sync settings across devices"),
-					description: localize('gettingStarted.settingsSync.description.interpolated', "Keep your essential customizations backed up and updated across all your devices.\n{0}", Button(localize('enableSync', "Backup and Sync Settings"), 'command:workbench.userDataSync.actions.turnOn')),
-					when: 'syncStatus != uninitialized',
-					completionEvents: ['onEvent:sync-enabled'],
-					media: {
-						type: 'svg', altText: 'The "Turn on Sync" entry in the settings gear menu.', path: 'settingsSync.svg'
-					},
-				},
-				{
-					id: 'commandPaletteTaskWeb',
-					title: localize('gettingStarted.commandPalette.title', "Unlock productivity with the Command Palette "),
-					description: localize('gettingStarted.commandPalette.description.interpolated', "Run commands without reaching for your mouse to accomplish any task in VS Code.\n{0}", Button(localize('commandPalette', "Open Command Palette"), 'command:workbench.action.showCommands')),
-					media: { type: 'svg', altText: 'Command Palette overlay for searching and executing commands.', path: 'commandPalette.svg' },
-				},
-				{
-					id: 'pickAFolderTask-WebWeb',
-					title: localize('gettingStarted.setup.OpenFolder.title', "Open up your code"),
-					description: localize('gettingStarted.setup.OpenFolderWeb.description.interpolated', "You're all set to start coding. You can open a local project or a remote repository to get your files into VS Code.\n{0}\n{1}", Button(localize('openFolder', "Open Folder"), 'command:workbench.action.addRootFolder'), Button(localize('openRepository', "Open Repository"), 'command:remoteHub.openRepository')),
-					when: 'workspaceFolderCount == 0',
-					media: {
-						type: 'svg', altText: 'Explorer view showing buttons for opening folder and cloning repository.', path: 'openFolder.svg'
-					}
-				},
-				{
-					id: 'quickOpenWeb',
-					title: localize('gettingStarted.quickOpen.title', "Quickly navigate between your files"),
-					description: localize('gettingStarted.quickOpen.description.interpolated', "Navigate between files in an instant with one keystroke. Tip: Open multiple files by pressing the right arrow key.\n{0}", Button(localize('quickOpen', "Quick Open a File"), 'command:toSide:workbench.action.quickOpen')),
-					when: 'workspaceFolderCount != 0',
-					media: {
-						type: 'svg', altText: 'Go to file in quick search.', path: 'search.svg'
-					}
-				}
-			]
-		}
-	},
-	{
 		id: 'SetupAccessibility',
 		title: localize('gettingStarted.setupAccessibility.title', "Get Started with Accessibility Features"),
 		description: localize('gettingStarted.setupAccessibility.description', "Learn the tools and shortcuts that make VS Code accessible. Note that some actions are not actionable from within the context of the walkthrough."),
-		isFeatured: true,
+		isFeatured: false,
 		icon: setupIcon,
 		when: CONTEXT_ACCESSIBILITY_MODE_ENABLED.key,
-		next: 'Setup',
-		walkthroughPageTitle: localize('gettingStarted.setupAccessibility.walkthroughPageTitle', 'Setup VS Code Accessibility'),
+		next: 'Beginner',
+		walkthroughPageTitle: localize('gettingStarted.setupAccessibility.walkthroughPageTitle', 'Setup Accessibility'),
 		content: {
 			type: 'steps',
 			steps: [
