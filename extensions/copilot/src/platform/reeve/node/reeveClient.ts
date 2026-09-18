@@ -879,17 +879,17 @@ CRITICAL INSTRUCTION: You MUST use the above Reeve Long-Term Project Memory to a
 	/**
 	 * Action Observer & Human-Centered Explanation Layer:
 	 */
-	public startActionObservation(sessionId: string, stream?: vscode.ChatResponseStream): ISessionActionObserver {
-		return this.explanationLayer.startSession(sessionId, stream);
+	public startActionObservation(sessionId: string, stream?: vscode.ChatResponseStream, userRequest = '', model?: vscode.LanguageModelChat): ISessionActionObserver {
+		return this.explanationLayer.startSession(sessionId, stream, userRequest, model);
 	}
 
-	public onBeforeToolAction(
+	public async onBeforeToolAction(
 		toolName: string,
 		input: any,
 		sessionId?: string
-	): { action: any; preExplanation?: string } | undefined {
+	): Promise<{ action: any; preExplanation?: string } | undefined> {
 		const recalled = sessionId ? this.lastRecalledMemories.get(sessionId) || [] : [];
-		return this.explanationLayer.onBeforeToolAction(toolName, input, sessionId, recalled);
+		return await this.explanationLayer.onBeforeToolAction(toolName, input, sessionId, recalled);
 	}
 
 	public onAfterToolAction(
@@ -908,18 +908,7 @@ CRITICAL INSTRUCTION: You MUST use the above Reeve Long-Term Project Memory to a
 		success: boolean = true,
 		sessionId?: string
 	): void {
-		if (sessionId) {
-			const obs = this.explanationLayer.getSessionObserver(sessionId);
-			obs?.recordToolInvocation(toolName, input, result, success);
-		} else {
-			// Record to all active session observers
-			const activeObservers = (this.explanationLayer as any).activeObservers as Map<string, any>;
-			if (activeObservers) {
-				for (const obs of activeObservers.values()) {
-					obs.recordToolInvocation(toolName, input, result, success);
-				}
-			}
-		}
+		this.explanationLayer.recordToolAction(toolName, input, result, success, sessionId);
 	}
 
 	public async finalizeActionObservation(

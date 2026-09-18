@@ -124,7 +124,7 @@ export class ToolsService extends BaseToolsService {
 		return this._modelSpecificTools;
 	}
 
-	invokeTool(name: string | ToolName, options: vscode.LanguageModelToolInvocationOptions<Object>, token: vscode.CancellationToken): Thenable<vscode.LanguageModelToolResult | vscode.LanguageModelToolResult2> {
+	async invokeTool(name: string | ToolName, options: vscode.LanguageModelToolInvocationOptions<Object>, token: vscode.CancellationToken): Promise<vscode.LanguageModelToolResult | vscode.LanguageModelToolResult2> {
 		this._onWillInvokeTool.fire({ toolName: name });
 
 		const isMcpTool = String(name).includes('mcp_');
@@ -221,7 +221,7 @@ export class ToolsService extends BaseToolsService {
 		let preActionResult: { action: any; preExplanation?: string } | undefined;
 		try {
 			const reeveClient = this._instantiationService.invokeFunction(accessor => accessor.get(IReeveClient));
-			preActionResult = reeveClient?.onBeforeToolAction?.(String(name), options.input, chatSessionId);
+			preActionResult = await reeveClient?.onBeforeToolAction?.(String(name), options.input, chatSessionId);
 		} catch {
 			// fail-safe
 		}

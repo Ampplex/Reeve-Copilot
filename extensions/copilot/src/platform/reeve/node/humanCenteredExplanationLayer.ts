@@ -4,13 +4,10 @@
  * license information.
  *--------------------------------------------------------------------------------*/
 
-import {
-	ChangeImpactLevel,
-	ISessionActionObserver,
-	ActionExplanation,
-	ObservedAction,
-} from '../common/reeveActionObserver';
+import * as vscode from 'vscode';
+import { ActionContext, ActionEvidence, ActionExplanation, ISessionActionObserver, ObservedAction } from '../common/reeveActionObserver';
 import { ReeveMemoryItem } from '../common/reeveClient';
+import { HumanExplanationService, IHumanExplanationModel } from './humanExplanationService';
 import { SessionActionObserver } from './reeveActionObserver';
 
 export interface IExplanationStream {
@@ -18,165 +15,147 @@ export interface IExplanationStream {
 	progress?(value: string): void;
 }
 
-/**
- * Human-Centered Change Explanation layer for Reeve.
- *
- * Observes meaningful coding actions from the existing Copilot agent,
- * explains consequential actions BEFORE they execute (prior to approval),
- * and explains results AFTER execution in natural, collegial engineering language.
- */
 export class HumanCenteredExplanationLayer {
 	private readonly activeObservers = new Map<string, SessionActionObserver>();
 	private readonly sessionStreams = new Map<string, IExplanationStream>();
+	private readonly sessionMemories = new Map<string, readonly ReeveMemoryItem[]>();
+	private readonly preExplanations = new Map<string, string>();
+	private readonly sessionModels = new Map<string, vscode.LanguageModelChat>();
 
-	/**
-	 * Starts observing actions for an active chat turn / interaction.
-	 */
-	startSession(sessionId: string, stream?: IExplanationStream): ISessionActionObserver {
-		const observer = new SessionActionObserver(sessionId);
+	constructor(private readonly explanationService: IHumanExplanationModel = new HumanExplanationService()) { }
+
+	startSession(sessionId: string, stream?: IExplanationStream, userRequest = '', model?: vscode.LanguageModelChat): ISessionActionObserver {
+		const observer = new SessionActionObserver(sessionId, userRequest);
 		this.activeObservers.set(sessionId, observer);
 		if (stream) {
 			this.sessionStreams.set(sessionId, stream);
 		}
+		this.sessionMemories.set(sessionId, []);
+		if (model) {
+			this.sessionModels.set(sessionId, model);
+		}
 		return observer;
 	}
 
-	/**
-	 * Retrieves the active observer for a session.
-	 */
 	getSessionObserver(sessionId: string): SessionActionObserver | undefined {
 		return this.activeObservers.get(sessionId);
 	}
 
-	/**
-	 * Intercepts tool invocation BEFORE execution.
-	 * If the action is consequential/significant, streams a pre-action explanation
-	 * before confirmation/execution.
-	 */
-	onBeforeToolAction(
-		toolName: string,
-		input: any,
-		sessionId?: string,
-		recalledMemories: readonly ReeveMemoryItem[] = []
-	): { action: ObservedAction; preExplanation?: string } | undefined {
-		const resolvedSessionId = sessionId || this.getLatestSessionId();
-		if (!resolvedSessionId) {
+	async onBeforeToolAction(toolName: string, input: any, sessionId?: string, recalledMemories: readonly ReeveMemoryItem[] = []): Promise<{ action: ObservedAction; preExplanation?: string } | undefined> {
+		const targetSessionId = sessionId || (this.activeObservers.size === 1 ? this.activeObservers.keys().next().value : undefined);
+		if (!targetSessionId) {
 			return undefined;
 		}
-
-		const observer = this.activeObservers.get(resolvedSessionId);
+		const observer = this.activeObservers.get(targetSessionId);
 		if (!observer) {
 			return undefined;
 		}
 
-		const result = observer.recordBeforeToolInvocation(toolName, input, recalledMemories);
-		if (result.preExplanation) {
-			const stream = this.sessionStreams.get(resolvedSessionId);
-			if (stream) {
-				try {
-					stream.markdown(`\n\n${result.preExplanation}\n\n`);
-				} catch {
-					// fail-safe
-				}
-			}
+		const { action } = observer.recordBeforeToolInvocation(toolName, input, recalledMemories);
+		this.sessionMemories.set(targetSessionId, recalledMemories);
+		if (!observer.isMeaningfulAction(action)) {
+			return { action };
 		}
-
-		return result;
+		const explanation = await this.explanationService.explain(this.buildContext(observer, action, recalledMemories, 'before'), this.sessionModels.get(targetSessionId));
+		if (explanation) {
+			this.preExplanations.set(targetSessionId, explanation);
+		}
+		this.render(explanation, targetSessionId);
+		return { action, preExplanation: explanation };
 	}
 
-	/**
-	 * Intercepts tool invocation AFTER execution.
-	 */
-	onAfterToolAction(
-		actionId: string,
-		result?: any,
-		success: boolean = true,
-		sessionId?: string
-	): void {
-		const resolvedSessionId = sessionId || this.getLatestSessionId();
-		if (!resolvedSessionId) {
-			return;
+	onAfterToolAction(actionId: string, result: any, success: boolean, sessionId?: string): void {
+		const targetSessionId = sessionId || (this.activeObservers.size === 1 ? this.activeObservers.keys().next().value : undefined);
+		if (targetSessionId) {
+			this.activeObservers.get(targetSessionId)?.recordAfterToolInvocation(actionId, result, success);
 		}
-
-		const observer = this.activeObservers.get(resolvedSessionId);
-		observer?.recordAfterToolInvocation(actionId, result, success);
 	}
 
-	/**
-	 * Finalizes the session, evaluates whether the agent explained its work adequately,
-	 * and streams a natural human-centered post-change explanation if needed.
-	 */
-	async finalizeSession(
-		sessionId: string,
-		agentResponseText: string,
-		stream?: IExplanationStream,
-		recalledMemories: readonly ReeveMemoryItem[] = []
-	): Promise<ActionExplanation | undefined> {
+	recordToolAction(toolName: string, input: any, result: any, success: boolean, sessionId?: string): void {
+		const targetSessionId = sessionId || (this.activeObservers.size === 1 ? this.activeObservers.keys().next().value : undefined);
+		if (targetSessionId) {
+			this.activeObservers.get(targetSessionId)?.recordToolInvocation(toolName, input, result, success);
+		}
+	}
+
+	async finalizeSession(sessionId: string, agentResponseText: string, stream?: IExplanationStream, recalledMemories: readonly ReeveMemoryItem[] = []): Promise<ActionExplanation | undefined> {
 		const observer = this.activeObservers.get(sessionId);
 		if (!observer) {
 			return undefined;
 		}
-
 		try {
-			const impact = observer.getOverallImpact();
-			// Trivial changes need no extra explanation
-			if (impact === ChangeImpactLevel.Trivial && (!recalledMemories || recalledMemories.length === 0)) {
+			const actions = observer.getActions().filter(candidate => observer.isMeaningfulAction(candidate));
+			if (actions.length === 0) {
 				return undefined;
 			}
-
-			// If the agent already naturally explained the change in its response, do not duplicate
-			if (observer.isExplanationAdequate(agentResponseText)) {
+			const explanation = await this.explanationService.explain(this.buildContext(observer, actions[actions.length - 1], this.sessionMemories.get(sessionId) || recalledMemories, 'after', agentResponseText, this.preExplanations.get(sessionId), actions), this.sessionModels.get(sessionId));
+			if (!explanation) {
 				return undefined;
 			}
-
-			// Generate the human-centered post-action explanation
-			const explanation = observer.generateExplanation(agentResponseText, recalledMemories);
+			const result: ActionExplanation = {
+				summary: explanation,
+			};
 			const targetStream = stream || this.sessionStreams.get(sessionId);
-			if (!explanation || !targetStream) {
-				return explanation;
+			if (targetStream) {
+				try { targetStream.markdown(`\n\n${explanation}\n\n`); } catch { /* fail-safe */ }
 			}
-
-			// Render the explanation into the response stream
-			this.renderExplanation(explanation, targetStream);
-			return explanation;
+			return result;
 		} finally {
 			this.activeObservers.delete(sessionId);
 			this.sessionStreams.delete(sessionId);
+			this.sessionMemories.delete(sessionId);
+			this.preExplanations.delete(sessionId);
+			this.sessionModels.delete(sessionId);
 		}
 	}
 
-	private getLatestSessionId(): string | undefined {
-		const keys = Array.from(this.activeObservers.keys());
-		return keys.length > 0 ? keys[keys.length - 1] : undefined;
+	private buildContext(observer: SessionActionObserver, action: ObservedAction | undefined, memories: readonly ReeveMemoryItem[], phase: ActionContext['phase'], agentResponse?: string, priorExplanation?: string, actions: readonly ObservedAction[] = [action].filter((candidate): candidate is ObservedAction => !!candidate)): ActionContext {
+		const details = action?.details || {};
+		const memory = memories.map(item => `${item.supersededBy || item.validTo ? 'Historical (superseded): ' : ''}${item.content}`).join('\n');
+		return {
+			phase,
+			type: this.actionType(action),
+			target: action?.targetResource,
+			command: details.command,
+			diff: details.diff,
+			content: details.content,
+			result: details.result,
+			userRequest: observer.getUserRequest(),
+			reeveMemory: memory || undefined,
+			agentResponse,
+			priorExplanation,
+			actions: actions.map(candidate => this.actionEvidence(candidate)),
+		};
 	}
 
-	/**
-	 * Formats and renders the explanation cleanly into the stream in natural prose
-	 * without rigid templates or AI status dashboards.
-	 */
-	private renderExplanation(explanation: ActionExplanation, stream: IExplanationStream): void {
-		const sentences: string[] = [];
+	private actionEvidence(action: ObservedAction): ActionEvidence {
+		return {
+			type: this.actionType(action),
+			target: action.targetResource,
+			command: action.details?.command,
+			diff: action.details?.diff,
+			content: action.details?.content,
+			result: action.details?.result,
+			success: action.success,
+		};
+	}
 
-		if (explanation.afterExplanation) {
-			sentences.push(explanation.afterExplanation);
-		} else if (explanation.summary) {
-			sentences.push(explanation.summary);
-		}
-
-		if (explanation.details && explanation.details.length > 0) {
-			sentences.push(explanation.details.join(' '));
-		}
-
-		if (explanation.relatedReeveDecisions && explanation.relatedReeveDecisions.length > 0) {
-			sentences.push(explanation.relatedReeveDecisions.join(' '));
-		}
-
-		if (explanation.uncertainty) {
-			sentences.push(explanation.uncertainty);
-		}
-
-		if (sentences.length > 0) {
-			stream.markdown(`\n\n${sentences.join(' ')}\n\n`);
+	private actionType(action: ObservedAction | undefined): ActionContext['type'] {
+		switch (action?.category) {
+			case 'file_edit': return 'edit';
+			case 'file_create': return 'create';
+			case 'file_delete': return 'delete';
+			case 'shell_command': return 'command';
+			case 'test_run': return 'test';
+			default: return 'other';
 		}
 	}
+
+	private render(explanation: string | undefined, sessionId: string): void {
+		if (!explanation) {
+			return;
+		}
+		try { this.sessionStreams.get(sessionId)?.markdown(`\n\n${explanation}\n\n`); } catch { /* fail-safe */ }
+	}
+
 }

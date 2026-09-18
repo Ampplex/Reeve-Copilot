@@ -109,13 +109,13 @@ export interface IReeveClient {
 	/**
 	 * Action Observer & Human-Centered Explanation Layer:
 	 */
-	startActionObservation?(sessionId: string, stream?: any): any;
+	startActionObservation?(sessionId: string, stream?: any, userRequest?: string, model?: any): any;
 
 	onBeforeToolAction?(
 		toolName: string,
 		input: any,
 		sessionId?: string
-	): { action: any; preExplanation?: string } | undefined;
+	): Promise<{ action: any; preExplanation?: string } | undefined>;
 
 	onAfterToolAction?(
 		actionId: string,

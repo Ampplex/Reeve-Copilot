@@ -20,14 +20,30 @@ export enum ActionCategory {
 	Other = 'other',
 }
 
-/**
- * The assessed impact level of an action or group of changes.
- */
-export enum ChangeImpactLevel {
-	Trivial = 'trivial',
-	Normal = 'normal',
-	Significant = 'significant',
-	Architectural = 'architectural',
+export interface ActionContext {
+	readonly phase: 'before' | 'after';
+	readonly type: 'edit' | 'create' | 'delete' | 'command' | 'test' | 'other';
+	readonly target?: string;
+	readonly command?: string;
+	readonly diff?: string;
+	readonly content?: string;
+	readonly result?: unknown;
+	readonly userRequest: string;
+	readonly reeveMemory?: string;
+	readonly codeContext?: string;
+	readonly agentResponse?: string;
+	readonly priorExplanation?: string;
+	readonly actions?: readonly ActionEvidence[];
+}
+
+export interface ActionEvidence {
+	readonly type: ActionContext['type'];
+	readonly target?: string;
+	readonly command?: string;
+	readonly diff?: string;
+	readonly content?: string;
+	readonly result?: unknown;
+	readonly success?: boolean;
 }
 
 /**
@@ -38,19 +54,9 @@ export interface ObservedAction {
 	readonly category: ActionCategory;
 	readonly toolName: string;
 	readonly targetResource?: string; // Target file or command
-	readonly details?: Record<string, any>;
+	details?: Record<string, any>;
 	readonly timestamp: number;
-	readonly impactLevel: ChangeImpactLevel;
-	readonly linesChanged?: number;
-	readonly hasComplexRegex?: boolean;
-	readonly detectedRegex?: string;
-	readonly isDestructive?: boolean;
-	readonly architecturalBoundary?: string;
-	readonly structuralElements?: {
-		readonly interfaces: readonly string[];
-		readonly classes: readonly string[];
-		readonly functions: readonly string[];
-	};
+	isDestructive?: boolean;
 	executed?: boolean;
 	success?: boolean;
 }
@@ -59,14 +65,7 @@ export interface ObservedAction {
  * The resulting human-centered explanation produced for the developer.
  */
 export interface ActionExplanation {
-	readonly impactLevel: ChangeImpactLevel;
 	readonly summary: string;
-	readonly details: readonly string[];
-	readonly relatedReeveDecisions: readonly string[];
-	readonly uncertainty?: string;
-	readonly isArchitectureChange?: boolean;
-	readonly beforeExplanation?: string;
-	readonly afterExplanation?: string;
 }
 
 /**
@@ -81,7 +80,7 @@ export interface ISessionActionObserver {
 		toolName: string,
 		input: any,
 		recalledMemories?: readonly ReeveMemoryItem[]
-	): { action: ObservedAction; preExplanation?: string };
+	): { action: ObservedAction };
 
 	/**
 	 * Records tool completion.
@@ -107,21 +106,10 @@ export interface ISessionActionObserver {
 	 */
 	getActions(): readonly ObservedAction[];
 
-	/**
-	 * Evaluates the cumulative impact level across all observed actions.
-	 */
-	getOverallImpact(): ChangeImpactLevel;
+	hasFileDeletion(): boolean;
 
 	/**
-	 * Checks if the agent's generated response adequately explains significant changes.
 	 */
-	isExplanationAdequate(agentResponseText: string): boolean;
-
-	/**
-	 * Produces a human-centered explanation if needed, incorporating relevant Reeve memory.
-	 */
-	generateExplanation(
-		agentResponseText: string,
-		recalledMemories?: readonly ReeveMemoryItem[]
-	): ActionExplanation | undefined;
+	getUserRequest(): string;
+	isMeaningfulAction(action: ObservedAction): boolean;
 }

@@ -300,7 +300,7 @@ Learn more about [Reeve Copilot](https://reeve.co.in). Or explore the [Copilot w
 
 				const sessionId = request.sessionId || generateUuid();
 				if (this.reeveClient?.isEnabled()) {
-					this.reeveClient.startActionObservation?.(sessionId, spiedStream);
+					this.reeveClient.startActionObservation?.(sessionId, spiedStream, originalUserPrompt, request.model);
 				}
 
 				const handler = this.instantiationService.createInstance(ChatParticipantRequestHandler, context.history, request, spiedStream, token, { agentName: name, agentId: id, intentId }, () => context.yieldRequested, telemetryMessageId);

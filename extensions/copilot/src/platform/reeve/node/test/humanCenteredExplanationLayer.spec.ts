@@ -4,267 +4,138 @@
  * license information.
  *--------------------------------------------------------------------------------*/
 
-import * as fs from 'node:fs';
-import * as path from 'node:path';
-import { describe, expect, it } from 'vitest';
-import {
-	ActionCategory,
-	ChangeImpactLevel,
-} from '../../common/reeveActionObserver';
-import { ReeveMemoryItem } from '../../common/reeveClient';
+import { describe, expect, it, vi } from 'vitest';
+import { ActionCategory } from '../../common/reeveActionObserver';
 import { HumanCenteredExplanationLayer, IExplanationStream } from '../humanCenteredExplanationLayer';
+import { HUMAN_EXPLANATION_PROMPT, IHumanExplanationModel } from '../humanExplanationService';
 import { SessionActionObserver } from '../reeveActionObserver';
 
-describe('Human-Centered Change Explanation Layer', () => {
-	// TEST 1: Significant edit receives a pre-action explanation
-	it('TEST 1: Significant edit receives a pre-action explanation before execution/approval', () => {
-		const observer = new SessionActionObserver('session-1');
-		const { action, preExplanation } = observer.recordBeforeToolInvocation('replace_string_in_file', {
-			filePath: 'src/routes/auth.ts',
-			replacementContent: `export function handleAuth() {\n  // consolidated token check\n  return validateToken();\n}\n\nexport function verifySession() {\n  return checkSession();\n}\n\nexport function checkPermissions() {\n  return true;\n}\n\n// additional lines\n// to exceed threshold\n// and mark significant\n// refactoring`,
+class FakeExplanationModel implements IHumanExplanationModel {
+	readonly contexts: any[] = [];
+	constructor(private readonly response = 'The requested change updates the authentication flow.') { }
+
+	async explain(context: any): Promise<string | undefined> {
+		this.contexts.push(context);
+		return this.response;
+	}
+}
+
+describe('Human explanation architecture', () => {
+	it('detects whether a session recorded a file deletion', () => {
+		const observer = new SessionActionObserver('session-delete');
+
+		expect(observer.hasFileDeletion()).toBe(false);
+		observer.recordToolInvocation('delete_file', { filePath: 'src/legacyAuth.ts' });
+
+		expect(observer.hasFileDeletion()).toBe(true);
+	});
+
+	it('observes actions without interpreting their engineering meaning', () => {
+		const observer = new SessionActionObserver('session-1', 'Add authentication caching.');
+		const { action } = observer.recordBeforeToolInvocation('replace_string_in_file', {
+			filePath: 'src/auth/cache.ts',
+			diff: '+ export const cache = new Map();',
 		});
 
 		expect(action.category).toBe(ActionCategory.FileEdit);
-		expect(action.impactLevel).toBe(ChangeImpactLevel.Significant);
-		expect(preExplanation).toBeDefined();
-		expect(preExplanation).toContain('auth.ts');
+		expect(action.targetResource).toBe('src/auth/cache.ts');
+		expect(action.details?.diff).toContain('Map');
+		expect(action).not.toHaveProperty('detectedRegex');
+		expect(action).not.toHaveProperty('architecturalBoundary');
 	});
 
-	// TEST 2: File deletion receives a pre-action explanation
-	it('TEST 2: File deletion receives a pre-action explanation with reference evidence', () => {
-		const observer = new SessionActionObserver('session-2');
-		const { action, preExplanation } = observer.recordBeforeToolInvocation('run_in_terminal', {
-			command: 'rm src/legacyAuth.ts',
-		});
+	it('ignores informational actions', async () => {
+		const model = new FakeExplanationModel();
+		const layer = new HumanCenteredExplanationLayer(model);
+		layer.startSession('session-2');
 
-		expect(action.category).toBe(ActionCategory.FileDelete);
-		expect(action.impactLevel).toBe(ChangeImpactLevel.Significant);
-		expect(preExplanation).toBeDefined();
-		expect(preExplanation).toContain('legacyAuth.ts');
-		expect(preExplanation).toContain('couldn\'t find any active references');
+		const result = await layer.onBeforeToolAction('read_file', { filePath: 'src/auth/cache.ts' }, 'session-2');
+
+		expect(result?.action.category).toBe(ActionCategory.CodebaseSearch);
+		expect(model.contexts).toHaveLength(0);
 	});
 
-	// TEST 3: Destructive command receives natural, evidence-based pre-action explanation
-	it('TEST 3: Destructive command rm -rf ./scratch/dist receives natural explanation without raw command or shell syntax', () => {
-		const observer = new SessionActionObserver('session-3');
-		const { action, preExplanation } = observer.recordBeforeToolInvocation('run_in_terminal', {
-			command: 'rm -rf ./scratch/dist',
-		});
-
-		expect(action.isDestructive).toBe(true);
-		expect(preExplanation).toBeDefined();
-		expect(preExplanation).toContain('./scratch/dist');
-		expect(preExplanation).toContain('generated build output');
-		expect(preExplanation).toContain('rebuilding the project');
-
-		// Explicitly assert it does NOT contain raw syntax, repetitive command, or AI banners
-		expect(preExplanation).not.toContain('rm -rf');
-		expect(preExplanation).not.toContain('removes or resets');
-		expect(preExplanation).not.toContain('💡 Action Context');
-	});
-
-	// TEST 3b: Pre-action explanation streams naturally without AI prefix
-	it('TEST 3b: onBeforeToolAction streams natural prose directly without AI dashboard prefix', () => {
-		const layer = new HumanCenteredExplanationLayer();
+	it('sends structured action evidence and streams the model explanation before execution', async () => {
+		const model = new FakeExplanationModel('I am adding the cache around the existing authentication flow.');
 		const streamed: string[] = [];
-		const mockStream: IExplanationStream = { markdown: s => streamed.push(s) };
+		const stream: IExplanationStream = { markdown: value => streamed.push(value) };
+		const layer = new HumanCenteredExplanationLayer(model);
+		layer.startSession('session-3', stream, 'Add authentication caching.');
 
-		layer.startSession('session-3b', mockStream);
-		layer.onBeforeToolAction('run_in_terminal', {
-			command: 'rm -rf ./scratch/dist && if [[ ! -e ./scratch/dist ]]; then printf "%s\\n" "./scratch/dist removed"; else exit 1; fi',
-		}, 'session-3b');
+		const result = await layer.onBeforeToolAction('replace_string_in_file', {
+			filePath: 'src/auth/cache.ts',
+			diff: '+ export const cache = new Map();',
+		}, 'session-3', [{ id: 'memory-1', content: 'Authentication state is centralized in AuthService.', category: 'architecture' }]);
 
-		expect(streamed.length).toBe(1);
-		expect(streamed[0]).toContain('./scratch/dist');
-		expect(streamed[0]).toContain('generated build output');
-		expect(streamed[0]).not.toContain('💡 Action Context');
-		expect(streamed[0]).not.toContain('rm -rf');
-		expect(streamed[0]).not.toContain('printf');
+		expect(result?.preExplanation).toContain('existing authentication flow');
+		expect(model.contexts[0]).toMatchObject({
+			type: 'edit',
+			target: 'src/auth/cache.ts',
+			diff: '+ export const cache = new Map();',
+			userRequest: 'Add authentication caching.',
+			reeveMemory: 'Authentication state is centralized in AuthService.',
+		});
+		expect(streamed[0]).toContain('existing authentication flow');
 	});
 
-	// TEST 4: Trivial edit does not generate unnecessary explanation
-	it('TEST 4: Trivial edit does not generate unnecessary pre-action or post-action explanation', async () => {
-		const layer = new HumanCenteredExplanationLayer();
-		const streamParts: string[] = [];
-		const mockStream: IExplanationStream = { markdown: s => streamParts.push(s) };
+	it('includes the result and marks superseded Reeve memory as historical', async () => {
+		const model = new FakeExplanationModel('The old authentication file was removed; the active flow is unchanged.');
+		const layer = new HumanCenteredExplanationLayer(model);
+		layer.startSession('session-4');
+		const before = await layer.onBeforeToolAction('run_in_terminal', { command: 'rm src/legacyAuth.ts' }, 'session-4', [{
+			id: 'old', content: 'Use the legacy authentication file.', category: 'decision', supersededBy: 'new',
+		}]);
+		layer.onAfterToolAction(before!.action.id, 'removed successfully', true, 'session-4');
 
-		layer.startSession('session-4', mockStream);
-		const beforeResult = layer.onBeforeToolAction('replace_string_in_file', {
-			filePath: 'src/user.ts',
-			replacementContent: 'const userProfile = getUser();',
-		}, 'session-4');
-
-		expect(beforeResult?.preExplanation).toBeUndefined();
-
-		const postResult = await layer.finalizeSession(
-			'session-4',
-			'Renamed getUser to getUserProfile.',
-			mockStream
-		);
-
-		expect(postResult).toBeUndefined();
-		expect(streamParts).toHaveLength(0);
-	});
-
-	// TEST 5: Existing natural agent explanation prevents duplicate explanation
-	it('TEST 5: Existing natural agent explanation prevents duplicate post-change explanation', async () => {
-		const layer = new HumanCenteredExplanationLayer();
-		const streamParts: string[] = [];
-		const mockStream: IExplanationStream = { markdown: s => streamParts.push(s) };
-
-		const observer = layer.startSession('session-5', mockStream);
-		observer.recordToolInvocation('replace_string_in_file', {
-			filePath: 'src/routes/auth.ts',
-			replacementContent: 'export function handleAuth() {\n  return validate();\n}',
-		});
-		observer.recordToolInvocation('replace_string_in_file', {
-			filePath: 'src/routes/user.ts',
-			replacementContent: 'export function handleUser() {\n  return validate();\n}',
-		});
-		observer.recordToolInvocation('replace_string_in_file', {
-			filePath: 'src/middleware/token.ts',
-			replacementContent: 'export function validate() {\n  // shared\n}',
-		});
-
-		// The agent already provided a thorough, natural explanation in its response
-		const comprehensiveResponse =
-			'I consolidated the duplicate token validation into AuthMiddleware and updated both routes that were doing it themselves. The API contract remains the same.';
-
-		const result = await layer.finalizeSession('session-5', comprehensiveResponse, mockStream);
-		expect(result).toBeUndefined();
-		expect(streamParts).toHaveLength(0);
-	});
-
-	// TEST 6: Reeve memory can influence an explanation
-	it('TEST 6: Reeve memory influences the explanation in natural language', () => {
-		const observer = new SessionActionObserver('session-6');
-		observer.recordToolInvocation('replace_string_in_file', {
-			filePath: 'src/db.ts',
-			replacementContent: 'export const pool = new Pool();',
-		});
-
-		const recalledMemories: ReeveMemoryItem[] = [
-			{
-				id: 'mem-1',
-				content: 'Standardize database access on PostgreSQL connection pooling.',
-				category: 'decision',
-			},
-		];
-
-		const explanation = observer.generateExplanation('Done.', recalledMemories);
-		expect(explanation).toBeDefined();
-		expect(explanation!.relatedReeveDecisions.some(d => d.includes('PostgreSQL'))).toBe(true);
-	});
-
-	// TEST 7: Superseded memory is described as historical
-	it('TEST 7: Superseded memory is explicitly described as historical and not current', () => {
-		const observer = new SessionActionObserver('session-7');
-		observer.recordToolInvocation('replace_string_in_file', {
-			filePath: 'src/db.ts',
-			replacementContent: 'export const client = new PostgresClient();',
-		});
-
-		const recalledMemories: ReeveMemoryItem[] = [
-			{
-				id: 'mem-old',
-				content: 'Use MongoDB for customer records.',
-				category: 'decision',
-				supersededBy: 'mem-postgres',
-			},
-		];
-
-		const explanation = observer.generateExplanation('Done.', recalledMemories);
-		expect(explanation).toBeDefined();
-		expect(
-			explanation!.relatedReeveDecisions.some(
-				d => d.includes('Historical note') && d.includes('superseded')
-			)
-		).toBe(true);
-	});
-
-	// TEST 8: Unable to determine intent results in explicit uncertainty
-	it('TEST 8: Unable to determine full intent results in explicit grounded uncertainty', () => {
-		const observer = new SessionActionObserver('session-8');
-		observer.recordToolInvocation('run_in_terminal', {
+		await layer.finalizeSession('session-4', 'Done.');
+		expect(model.contexts[1]).toMatchObject({
+			type: 'command',
 			command: 'rm src/legacyAuth.ts',
+			result: 'removed successfully',
+			reeveMemory: 'Historical (superseded): Use the legacy authentication file.',
 		});
-
-		const explanation = observer.generateExplanation('Done.');
-		expect(explanation).toBeDefined();
-		expect(explanation!.uncertainty).toBeDefined();
-		expect(explanation!.uncertainty).toContain('haven\'t verified if external repositories');
 	});
 
-	// TEST 9: Humanized layer failure never breaks Copilot
-	it('TEST 9: Humanized layer errors are handled fail-safe without throwing', async () => {
-		const layer = new HumanCenteredExplanationLayer();
-		layer.startSession('session-9');
+	it('gives the model the existing agent explanation to avoid duplication', async () => {
+		const model = new FakeExplanationModel();
+		const layer = new HumanCenteredExplanationLayer(model);
+		layer.startSession('session-5');
+		await layer.onBeforeToolAction('replace_string_in_file', { filePath: 'src/auth.ts', diff: 'change' }, 'session-5');
+		const result = await layer.finalizeSession('session-5', 'I updated the authentication cache and preserved the existing authentication flow.');
 
-		// Malformed inputs or broken stream
-		const brokenStream: IExplanationStream = {
-			markdown: () => {
-				throw new Error('Stream rendering failed');
-			},
-		};
-
-		// Should not throw
-		await expect(
-			layer.finalizeSession('session-9', 'Done.', brokenStream)
-		).resolves.not.toThrow();
+		expect(result).toBeDefined();
+		expect(model.contexts[1].agentResponse).toContain('preserved the existing authentication flow');
+		expect(model.contexts[1].priorExplanation).toBeDefined();
 	});
 
-	// TEST 10: Main Copilot identity prompt is NOT modified by the humanizer
-	it('TEST 10: Main Copilot identity prompt in copilotIdentity.tsx does NOT contain humanizer rules', () => {
-		const identityFilePath = path.resolve(__dirname, '../../../../extension/prompts/node/base/copilotIdentity.tsx');
-		const fileContent = fs.readFileSync(identityFilePath, 'utf8');
-
-		expect(fileContent).not.toContain('HumanCenteredExplanationRules');
-		expect(fileContent).not.toContain('humanCenteredExplanationPrompt');
-		expect(fileContent).toContain('CopilotIdentityRules');
+	it('keeps the prompt focused on evidence and non-fabrication', () => {
+		expect(HUMAN_EXPLANATION_PROMPT).toContain('Use only the supplied evidence');
+		expect(HUMAN_EXPLANATION_PROMPT).toContain('Do not invent reasoning');
+		expect(HUMAN_EXPLANATION_PROMPT).not.toContain('Action Context');
 	});
 
-	// TEST 11: File edit does not fabricate 'duplicated logic'
-	it('TEST 11: File edit does not fabricate duplicated logic without evidence', () => {
-		const observer = new SessionActionObserver('session-11');
-		const { preExplanation } = observer.recordBeforeToolInvocation('replace_string_in_file', {
-			filePath: 'src/services/payment.ts',
-			replacementContent: `export class PaymentService {\n  process() {\n    return true;\n  }\n  validate() {\n    return true;\n  }\n  refund() {\n    return false;\n  }\n  verify() {\n    return true;\n  }\n  cancel() {\n    return true;\n  }\n  track() {\n    return true;\n  }\n}`,
-		});
+	it('sends all meaningful actions to the final explanation model', async () => {
+		const model = new FakeExplanationModel();
+		const layer = new HumanCenteredExplanationLayer(model);
+		layer.startSession('session-7', undefined, 'Update authentication.');
+		await layer.onBeforeToolAction('replace_string_in_file', { filePath: 'src/auth.ts', diff: 'auth change' }, 'session-7');
+		await layer.onBeforeToolAction('create_file', { filePath: 'src/auth/cache.ts', content: 'cache' }, 'session-7');
+		await layer.finalizeSession('session-7', 'Completed both authentication changes.');
 
-		expect(preExplanation).toBeDefined();
-		expect(preExplanation).toContain('payment.ts');
-		// Must not make up claims about duplicated logic
-		expect(preExplanation).not.toContain('duplicated logic');
-		expect(preExplanation).not.toContain('duplicate check');
+		const finalContext = model.contexts[2];
+		expect(finalContext.phase).toBe('after');
+		expect(finalContext.actions).toHaveLength(2);
+		expect(finalContext.actions.map((action: { target?: string }) => action.target)).toEqual([
+			'src/auth.ts',
+			'src/auth/cache.ts',
+		]);
 	});
 
-	// TEST 12: Architectural change describes concrete contract without fabricating design philosophy
-	it('TEST 12: Architectural change describes concrete contract without fabricating design philosophy', () => {
-		const observer = new SessionActionObserver('session-12');
-		const { preExplanation } = observer.recordBeforeToolInvocation('create_file', {
-			filePath: 'src/repositories/userRepository.ts',
-			content: `export interface UserRepository {\n  findById(id: string): Promise<User>;\n}\nexport class PostgresUserRepository implements UserRepository {\n  async findById(id: string) {\n    return db.query(id);\n  }\n}\n// 15 lines of logic\n// line 8\n// line 9\n// line 10\n// line 11\n// line 12\n// line 13\n// line 14\n// line 15`,
-		});
-
-		expect(preExplanation).toBeDefined();
-		expect(preExplanation).toContain('UserRepository');
-		expect(preExplanation).toContain('Repository');
-		// Must not make up generic design slogans
-		expect(preExplanation).not.toContain('to cleanly separate responsibilities');
-		expect(preExplanation).not.toContain('from implementation details');
-	});
-
-	// TEST 13: Unknown deletion target honestly states lack of evidence
-	it('TEST 13: Unknown deletion target honestly states lack of evidence', () => {
-		const observer = new SessionActionObserver('session-13');
-		const { preExplanation } = observer.recordBeforeToolInvocation('run_in_terminal', {
-			command: 'rm -rf ./custom-data',
-		});
-
-		expect(preExplanation).toBeDefined();
-		expect(preExplanation).toContain('./custom-data');
-		expect(preExplanation).toContain('couldn\'t establish why it is safe to remove');
-		// Must not claim it is build output
-		expect(preExplanation).not.toContain('generated build output');
+	it('fails safe when the explanation model fails', async () => {
+		const model: IHumanExplanationModel = { explain: vi.fn(async () => undefined) };
+		const layer = new HumanCenteredExplanationLayer(model);
+		layer.startSession('session-6');
+		const result = await layer.onBeforeToolAction('create_file', { filePath: 'src/new.ts', content: 'export {}' }, 'session-6');
+		expect(result?.preExplanation).toBeUndefined();
 	});
 });
