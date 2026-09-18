@@ -18,7 +18,7 @@ import {
 	ReeveStoreParams,
 	ReeveStoreResult
 } from '../common/reeveClient';
-import { ISessionActionObserver, ActionExplanation } from '../common/reeveActionObserver';
+import { ISessionActionObserver, ActionExplanation, ReeveActionEvent } from '../common/reeveActionObserver';
 import { HumanCenteredExplanationLayer } from './humanCenteredExplanationLayer';
 
 const DEFAULT_ENDPOINT = 'https://mcp.reeve.co.in';
@@ -881,6 +881,19 @@ CRITICAL INSTRUCTION: You MUST use the above Reeve Long-Term Project Memory to a
 	 */
 	public startActionObservation(sessionId: string, stream?: vscode.ChatResponseStream, userRequest = '', model?: vscode.LanguageModelChat): ISessionActionObserver {
 		return this.explanationLayer.startSession(sessionId, stream, userRequest, model);
+	}
+
+	public async onBeforeAction(
+		event: ReeveActionEvent
+	): Promise<{ action: any; preExplanation?: string } | undefined> {
+		const recalled = event.sessionId ? this.lastRecalledMemories.get(event.sessionId) || [] : [];
+		return await this.explanationLayer.onBeforeAction(event, recalled);
+	}
+
+	public onAfterAction(
+		event: ReeveActionEvent
+	): void {
+		this.explanationLayer.onAfterAction(event);
 	}
 
 	public async onBeforeToolAction(

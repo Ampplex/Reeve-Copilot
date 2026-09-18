@@ -4,7 +4,8 @@
  * license information.
  *--------------------------------------------------------------------------------*/
 
-import { ActionCategory, ISessionActionObserver, ObservedAction } from '../common/reeveActionObserver';
+import { ActionCategory, ISessionActionObserver, ObservedAction, ReeveActionEvent } from '../common/reeveActionObserver';
+import { CopilotActionAdapter } from '../common/reeveAdapters';
 import { ReeveMemoryItem } from '../common/reeveClient';
 
 export class SessionActionObserver implements ISessionActionObserver {
@@ -13,25 +14,55 @@ export class SessionActionObserver implements ISessionActionObserver {
 
 	constructor(public readonly sessionId: string, private readonly userRequest = '') { }
 
-	recordBeforeToolInvocation(toolName: string, input: any, _recalledMemories: readonly ReeveMemoryItem[] = []): { action: ObservedAction } {
-		const action = this.createObservedAction(toolName, input);
+	/**
+	 * Agent-provider agnostic hook: records any harness action event before execution.
+	 */
+	recordBeforeAction(event: ReeveActionEvent): { action: ObservedAction } {
+		const action = this.createObservedActionFromEvent(event);
 		this.actions.push(action);
 		return { action };
 	}
 
-	recordAfterToolInvocation(actionId: string, result?: any, success = true): void {
-		const action = this.actions.find(candidate => candidate.id === actionId);
+	/**
+	 * Agent-provider agnostic hook: records action completion result.
+	 */
+	recordAfterAction(event: ReeveActionEvent): void {
+		const action = this.actions.find(candidate => candidate.id === event.actionId);
 		if (action) {
 			action.executed = true;
-			action.success = success;
-			action.details = { ...action.details, result };
+			action.success = event.success ?? true;
+			action.details = { ...action.details, result: event.result };
 		}
 	}
 
-	recordToolInvocation(toolName: string, input: any, result?: any, success = true): ObservedAction | undefined {
-		const { action } = this.recordBeforeToolInvocation(toolName, input);
-		this.recordAfterToolInvocation(action.id, result, success);
+	recordAction(event: ReeveActionEvent): ObservedAction | undefined {
+		const { action } = this.recordBeforeAction(event);
+		this.recordAfterAction({ ...event, actionId: action.id });
 		return action;
+	}
+
+	/**
+	 * Copilot tool-call adapter for backwards compatibility.
+	 */
+	recordBeforeToolInvocation(toolName: string, input: any, _recalledMemories: readonly ReeveMemoryItem[] = []): { action: ObservedAction } {
+		const event = CopilotActionAdapter.toEvent(toolName, input, this.sessionId);
+		return this.recordBeforeAction(event);
+	}
+
+	recordAfterToolInvocation(actionId: string, result?: any, success = true): void {
+		this.recordAfterAction({
+			harness: 'copilot',
+			sessionId: this.sessionId,
+			actionId,
+			type: 'other',
+			result,
+			success,
+		});
+	}
+
+	recordToolInvocation(toolName: string, input: any, result?: any, success = true): ObservedAction | undefined {
+		const event = CopilotActionAdapter.toEvent(toolName, input, this.sessionId);
+		return this.recordAction({ ...event, result, success });
 	}
 
 	getActions(): readonly ObservedAction[] {
@@ -43,43 +74,52 @@ export class SessionActionObserver implements ISessionActionObserver {
 	}
 
 	isMeaningfulAction(action: ObservedAction): boolean {
-		return action.category === ActionCategory.FileEdit || action.category === ActionCategory.FileCreate || action.category === ActionCategory.FileDelete || action.category === ActionCategory.ShellCommand;
+		return action.category === ActionCategory.FileEdit ||
+			action.category === ActionCategory.FileCreate ||
+			action.category === ActionCategory.FileDelete ||
+			action.category === ActionCategory.ShellCommand;
 	}
 
 	getUserRequest(): string {
 		return this.userRequest;
 	}
 
-	private createObservedAction(toolName: string, input: any): ObservedAction {
-		const normalizedName = String(toolName).toLowerCase().replace(/[_-]/g, '');
-		const actionId = `act_${++this.counter}_${Date.now()}`;
-		const filePath = input?.filePath || input?.targetFile || input?.path;
-		const content = input?.replacementContent || input?.patch || input?.content || input?.contents || input?.code;
+	private createObservedActionFromEvent(event: ReeveActionEvent): ObservedAction {
+		const actionId = event.actionId || `act_${++this.counter}_${Date.now()}`;
+		const category = this.actionCategoryFromType(event.type);
+		const toolName = event.toolName || event.type;
+		const targetResource = event.target;
+		const details: Record<string, any> = {
+			command: event.command,
+			diff: event.diff,
+			content: event.content,
+			result: event.result,
+			input: event.input,
+		};
 
-		if (normalizedName.includes('readfile') || normalizedName.includes('listdir') || normalizedName.includes('grepsearch') || normalizedName.includes('filesearch') || normalizedName.includes('semanticsearch') || normalizedName.includes('geterrors')) {
-			return this.action(actionId, ActionCategory.CodebaseSearch, toolName, filePath, { input });
-		}
-
-		if (normalizedName.includes('createfile') || normalizedName.includes('createnewworkspace')) {
-			return this.action(actionId, ActionCategory.FileCreate, toolName, filePath, { content, diff: input?.diff || input?.patch });
-		}
-		if (normalizedName.includes('deletefile') || normalizedName.includes('removefile')) {
-			return this.action(actionId, ActionCategory.FileDelete, toolName, filePath, { input });
-		}
-		if (normalizedName.includes('insertedit') || normalizedName.includes('replacestring') || normalizedName.includes('applypatch') || normalizedName.includes('editnotebook') || normalizedName.includes('editfiles')) {
-			return this.action(actionId, ActionCategory.FileEdit, toolName, filePath, { content, diff: input?.diff || input?.patch });
-		}
-		if (normalizedName.includes('terminal') || normalizedName.includes('runtask') || normalizedName.includes('createandruntask')) {
-			const command = input?.command || input?.cmd || input?.text || '';
-			return this.action(actionId, ActionCategory.ShellCommand, toolName, undefined, { command });
-		}
-		if (normalizedName.includes('test')) {
-			return this.action(actionId, ActionCategory.TestRun, toolName, input?.testName || input?.file, { input });
-		}
-		return this.action(actionId, ActionCategory.Other, toolName, undefined, { input });
+		return {
+			id: actionId,
+			category,
+			toolName,
+			harness: event.harness,
+			targetResource,
+			details,
+			timestamp: event.timestamp || Date.now(),
+			isDestructive: event.isDestructive,
+			executed: event.result !== undefined,
+			success: event.success,
+		};
 	}
 
-	private action(id: string, category: ActionCategory, toolName: string, targetResource: string | undefined, details: Record<string, any>): ObservedAction {
-		return { id, category, toolName, targetResource, details, timestamp: Date.now() };
+	private actionCategoryFromType(type: ReeveActionEvent['type']): ActionCategory {
+		switch (type) {
+			case 'edit': return ActionCategory.FileEdit;
+			case 'create': return ActionCategory.FileCreate;
+			case 'delete': return ActionCategory.FileDelete;
+			case 'command': return ActionCategory.ShellCommand;
+			case 'test': return ActionCategory.TestRun;
+			case 'read': return ActionCategory.CodebaseSearch;
+			default: return ActionCategory.Other;
+		}
 	}
 }

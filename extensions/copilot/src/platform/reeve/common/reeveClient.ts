@@ -6,6 +6,7 @@
 
 import { createServiceIdentifier } from '../../../util/common/services';
 import { CancellationToken } from '../../../util/vs/base/common/cancellation';
+import { ReeveActionEvent } from './reeveActionObserver';
 
 export const IReeveClient = createServiceIdentifier<IReeveClient>('IReeveClient');
 
@@ -110,6 +111,17 @@ export interface IReeveClient {
 	 * Action Observer & Human-Centered Explanation Layer:
 	 */
 	startActionObservation?(sessionId: string, stream?: any, userRequest?: string, model?: any): any;
+
+	/**
+	 * Provider-agnostic action hooks
+	 */
+	onBeforeAction?(
+		event: ReeveActionEvent
+	): Promise<{ action: any; preExplanation?: string } | undefined>;
+
+	onAfterAction?(
+		event: ReeveActionEvent
+	): void;
 
 	onBeforeToolAction?(
 		toolName: string,

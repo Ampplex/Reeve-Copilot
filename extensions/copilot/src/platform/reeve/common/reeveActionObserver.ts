@@ -20,9 +20,31 @@ export enum ActionCategory {
 	Other = 'other',
 }
 
+export type ReeveActionType = 'edit' | 'create' | 'delete' | 'command' | 'test' | 'read' | 'other';
+
+/**
+ * Agent-provider agnostic action event emitted by any agent harness (Copilot, Claude, etc.).
+ */
+export interface ReeveActionEvent {
+	readonly harness: string;
+	readonly sessionId: string;
+	readonly actionId?: string;
+	readonly type: ReeveActionType;
+	readonly toolName?: string;
+	readonly target?: string;
+	readonly command?: string;
+	readonly diff?: string;
+	readonly content?: string;
+	readonly input?: unknown;
+	readonly result?: unknown;
+	readonly success?: boolean;
+	readonly isDestructive?: boolean;
+	readonly timestamp?: number;
+}
+
 export interface ActionContext {
 	readonly phase: 'before' | 'after';
-	readonly type: 'edit' | 'create' | 'delete' | 'command' | 'test' | 'other';
+	readonly type: ReeveActionType;
 	readonly target?: string;
 	readonly command?: string;
 	readonly diff?: string;
@@ -37,7 +59,7 @@ export interface ActionContext {
 }
 
 export interface ActionEvidence {
-	readonly type: ActionContext['type'];
+	readonly type: ReeveActionType;
 	readonly target?: string;
 	readonly command?: string;
 	readonly diff?: string;
@@ -53,6 +75,7 @@ export interface ObservedAction {
 	readonly id: string;
 	readonly category: ActionCategory;
 	readonly toolName: string;
+	readonly harness?: string;
 	readonly targetResource?: string; // Target file or command
 	details?: Record<string, any>;
 	readonly timestamp: number;
@@ -73,8 +96,22 @@ export interface ActionExplanation {
  */
 export interface ISessionActionObserver {
 	/**
-	 * Inspects a pending tool invocation before execution.
-	 * Returns a pre-action explanation if the action is consequential/significant.
+	 * Records a harness-agnostic action event before execution.
+	 */
+	recordBeforeAction(event: ReeveActionEvent): { action: ObservedAction };
+
+	/**
+	 * Records a harness-agnostic action event after execution.
+	 */
+	recordAfterAction(event: ReeveActionEvent): void;
+
+	/**
+	 * Records a harness-agnostic action event directly.
+	 */
+	recordAction(event: ReeveActionEvent): ObservedAction | undefined;
+
+	/**
+	 * Legacy Copilot tool hook adapter.
 	 */
 	recordBeforeToolInvocation(
 		toolName: string,
@@ -83,7 +120,7 @@ export interface ISessionActionObserver {
 	): { action: ObservedAction };
 
 	/**
-	 * Records tool completion.
+	 * Legacy Copilot tool hook adapter.
 	 */
 	recordAfterToolInvocation(
 		actionId: string,
@@ -92,7 +129,7 @@ export interface ISessionActionObserver {
 	): void;
 
 	/**
-	 * Records a tool invocation directly (for backward compatibility / tests).
+	 * Legacy Copilot tool hook adapter.
 	 */
 	recordToolInvocation(
 		toolName: string,
@@ -108,8 +145,6 @@ export interface ISessionActionObserver {
 
 	hasFileDeletion(): boolean;
 
-	/**
-	 */
 	getUserRequest(): string;
 	isMeaningfulAction(action: ObservedAction): boolean;
 }

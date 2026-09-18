@@ -5,7 +5,8 @@
  *--------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { ActionContext, ActionEvidence, ActionExplanation, ISessionActionObserver, ObservedAction } from '../common/reeveActionObserver';
+import { ActionContext, ActionEvidence, ActionExplanation, ISessionActionObserver, ObservedAction, ReeveActionEvent } from '../common/reeveActionObserver';
+import { CopilotActionAdapter } from '../common/reeveAdapters';
 import { ReeveMemoryItem } from '../common/reeveClient';
 import { HumanExplanationService, IHumanExplanationModel } from './humanExplanationService';
 import { SessionActionObserver } from './reeveActionObserver';
@@ -41,8 +42,11 @@ export class HumanCenteredExplanationLayer {
 		return this.activeObservers.get(sessionId);
 	}
 
-	async onBeforeToolAction(toolName: string, input: any, sessionId?: string, recalledMemories: readonly ReeveMemoryItem[] = []): Promise<{ action: ObservedAction; preExplanation?: string } | undefined> {
-		const targetSessionId = sessionId || (this.activeObservers.size === 1 ? this.activeObservers.keys().next().value : undefined);
+	/**
+	 * Agent-provider agnostic action hook: called before any agent harness executes an action.
+	 */
+	async onBeforeAction(event: ReeveActionEvent, recalledMemories: readonly ReeveMemoryItem[] = []): Promise<{ action: ObservedAction; preExplanation?: string } | undefined> {
+		const targetSessionId = event.sessionId || (this.activeObservers.size === 1 ? this.activeObservers.keys().next().value : undefined);
 		if (!targetSessionId) {
 			return undefined;
 		}
@@ -51,7 +55,7 @@ export class HumanCenteredExplanationLayer {
 			return undefined;
 		}
 
-		const { action } = observer.recordBeforeToolInvocation(toolName, input, recalledMemories);
+		const { action } = observer.recordBeforeAction(event);
 		this.sessionMemories.set(targetSessionId, recalledMemories);
 		if (!observer.isMeaningfulAction(action)) {
 			return { action };
@@ -64,18 +68,44 @@ export class HumanCenteredExplanationLayer {
 		return { action, preExplanation: explanation };
 	}
 
-	onAfterToolAction(actionId: string, result: any, success: boolean, sessionId?: string): void {
-		const targetSessionId = sessionId || (this.activeObservers.size === 1 ? this.activeObservers.keys().next().value : undefined);
+	/**
+	 * Agent-provider agnostic action hook: called after any agent harness finishes an action.
+	 */
+	onAfterAction(event: ReeveActionEvent): void {
+		const targetSessionId = event.sessionId || (this.activeObservers.size === 1 ? this.activeObservers.keys().next().value : undefined);
 		if (targetSessionId) {
-			this.activeObservers.get(targetSessionId)?.recordAfterToolInvocation(actionId, result, success);
+			this.activeObservers.get(targetSessionId)?.recordAfterAction(event);
 		}
 	}
 
+	/**
+	 * Backward compatibility adapter for Copilot tools.
+	 */
+	async onBeforeToolAction(toolName: string, input: any, sessionId?: string, recalledMemories: readonly ReeveMemoryItem[] = []): Promise<{ action: ObservedAction; preExplanation?: string } | undefined> {
+		const targetSessionId = sessionId || (this.activeObservers.size === 1 ? this.activeObservers.keys().next().value : 'default_session');
+		const event = CopilotActionAdapter.toEvent(toolName, input, targetSessionId);
+		return this.onBeforeAction(event, recalledMemories);
+	}
+
+	/**
+	 * Backward compatibility adapter for Copilot tools.
+	 */
+	onAfterToolAction(actionId: string, result: any, success: boolean, sessionId?: string): void {
+		const targetSessionId = sessionId || (this.activeObservers.size === 1 ? this.activeObservers.keys().next().value : 'default_session');
+		this.onAfterAction({
+			harness: 'copilot',
+			sessionId: targetSessionId,
+			actionId,
+			type: 'other',
+			result,
+			success,
+		});
+	}
+
 	recordToolAction(toolName: string, input: any, result: any, success: boolean, sessionId?: string): void {
-		const targetSessionId = sessionId || (this.activeObservers.size === 1 ? this.activeObservers.keys().next().value : undefined);
-		if (targetSessionId) {
-			this.activeObservers.get(targetSessionId)?.recordToolInvocation(toolName, input, result, success);
-		}
+		const targetSessionId = sessionId || (this.activeObservers.size === 1 ? this.activeObservers.keys().next().value : 'default_session');
+		const event = CopilotActionAdapter.toEvent(toolName, input, targetSessionId);
+		this.activeObservers.get(targetSessionId)?.recordAction({ ...event, result, success });
 	}
 
 	async finalizeSession(sessionId: string, agentResponseText: string, stream?: IExplanationStream, recalledMemories: readonly ReeveMemoryItem[] = []): Promise<ActionExplanation | undefined> {

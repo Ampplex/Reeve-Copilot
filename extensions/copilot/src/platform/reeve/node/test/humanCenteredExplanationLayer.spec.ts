@@ -6,6 +6,7 @@
 
 import { describe, expect, it, vi } from 'vitest';
 import { ActionCategory } from '../../common/reeveActionObserver';
+import { ClaudeActionAdapter, CopilotActionAdapter } from '../../common/reeveAdapters';
 import { HumanCenteredExplanationLayer, IExplanationStream } from '../humanCenteredExplanationLayer';
 import { HUMAN_EXPLANATION_PROMPT, IHumanExplanationModel } from '../humanExplanationService';
 import { SessionActionObserver } from '../reeveActionObserver';
@@ -137,5 +138,77 @@ describe('Human explanation architecture', () => {
 		layer.startSession('session-6');
 		const result = await layer.onBeforeToolAction('create_file', { filePath: 'src/new.ts', content: 'export {}' }, 'session-6');
 		expect(result?.preExplanation).toBeUndefined();
+	});
+});
+
+describe('Agent provider agnostic action adapters', () => {
+	it('maps Claude Code tool calls to ReeveActionEvents accurately', () => {
+		const bashEvent = ClaudeActionAdapter.toEvent('Bash', { command: 'npm test' }, 'claude-sess');
+		expect(bashEvent.harness).toBe('claude');
+		expect(bashEvent.type).toBe('command');
+		expect(bashEvent.command).toBe('npm test');
+		expect(bashEvent.isDestructive).toBe(false);
+
+		const destructiveBash = ClaudeActionAdapter.toEvent('bash', { command: 'rm -rf dist/' }, 'claude-sess');
+		expect(destructiveBash.isDestructive).toBe(true);
+
+		const editEvent = ClaudeActionAdapter.toEvent('Edit', { path: 'src/main.ts', diff: '@@ -1 +1 @@' }, 'claude-sess');
+		expect(editEvent.harness).toBe('claude');
+		expect(editEvent.type).toBe('edit');
+		expect(editEvent.target).toBe('src/main.ts');
+		expect(editEvent.diff).toBe('@@ -1 +1 @@');
+
+		const writeEvent = ClaudeActionAdapter.toEvent('Write', { path: 'README.md', content: '# Hello' }, 'claude-sess');
+		expect(writeEvent.type).toBe('create');
+		expect(writeEvent.target).toBe('README.md');
+
+		const readEvent = ClaudeActionAdapter.toEvent('View', { path: 'package.json' }, 'claude-sess');
+		expect(readEvent.type).toBe('read');
+	});
+
+	it('maps Copilot tool invocations to ReeveActionEvents accurately', () => {
+		const editEvent = CopilotActionAdapter.toEvent('replace_string_in_file', { filePath: 'src/index.ts', replacementContent: 'test' }, 'copilot-sess');
+		expect(editEvent.harness).toBe('copilot');
+		expect(editEvent.type).toBe('edit');
+		expect(editEvent.target).toBe('src/index.ts');
+
+		const runTaskEvent = CopilotActionAdapter.toEvent('run_in_terminal', { command: 'rm -rf node_modules' }, 'copilot-sess');
+		expect(runTaskEvent.type).toBe('command');
+		expect(runTaskEvent.isDestructive).toBe(true);
+
+		const readEvent = CopilotActionAdapter.toEvent('read_file', { filePath: 'src/index.ts' }, 'copilot-sess');
+		expect(readEvent.type).toBe('read');
+	});
+
+	it('explains actions identically across Claude and Copilot harnesses via onBeforeAction', async () => {
+		const model = new FakeExplanationModel('Human explanation for file edit.');
+		const streamed: string[] = [];
+		const stream: IExplanationStream = { markdown: val => streamed.push(val) };
+		const layer = new HumanCenteredExplanationLayer(model);
+
+		// Claude harness session
+		layer.startSession('session-claude', stream, 'Refactor database client');
+		const claudeEvent = ClaudeActionAdapter.toEvent('Edit', {
+			path: 'src/db.ts',
+			diff: '+ pool.connect()',
+		}, 'session-claude');
+
+		const claudeResult = await layer.onBeforeAction(claudeEvent, [
+			{ id: 'mem-1', content: 'Database connections must use connection pooling.' }
+		]);
+
+		expect(claudeResult?.action.targetResource).toBe('src/db.ts');
+		expect(claudeResult?.preExplanation).toBe('Human explanation for file edit.');
+		expect(model.contexts[0]).toMatchObject({
+			type: 'edit',
+			target: 'src/db.ts',
+			diff: '+ pool.connect()',
+			userRequest: 'Refactor database client',
+			reeveMemory: 'Database connections must use connection pooling.',
+		});
+
+		// Finalize Claude session
+		const finalRes = await layer.finalizeSession('session-claude', 'Done refactoring db client');
+		expect(finalRes?.summary).toBe('Human explanation for file edit.');
 	});
 });
