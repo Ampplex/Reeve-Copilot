@@ -203,28 +203,28 @@ export class SessionActionObserver implements ISessionActionObserver {
 		// 1. Destructive Commands & File Deletions
 		if (action.isDestructive || action.category === ActionCategory.FileDelete) {
 			if (isBuildArtifact) {
-				return `I'm removing \`${target}\` because it contains generated build output. The source files are not being removed, and the directory can be recreated by rebuilding the project.`;
+				return `Because \`${target}\` contains generated build output, the source files are not being removed, and the directory can be recreated by rebuilding the project.`;
 			}
 			if (target === 'repository working tree' || target.includes('working tree')) {
-				return `I'm resetting uncommitted changes in the repository to return to a clean state. Any uncommitted local modifications will be discarded.`;
+				return `Resetting uncommitted changes in the repository to return to a clean state. Any uncommitted local modifications will be discarded.`;
 			}
 			if (action.category === ActionCategory.FileDelete) {
 				if (relevantMemory) {
-					return `I'm removing \`${target}\`, matching the project decision recorded in Reeve: ${relevantMemory.content}`;
+					return `Removing \`${target}\`, matching the project decision recorded in Reeve: ${relevantMemory.content}`;
 				}
 				const isSourceCodeFile = /\.(ts|tsx|js|jsx|py|go|rs|java|c|cpp|cs|vue|svelte|rb|php)$/i.test(target);
 				const hasEvidence = isSourceCodeFile && !target.includes('scratch') && !target.includes('tmp');
 				if (hasEvidence) {
-					return `I'm removing \`${target}\` because I couldn't find any active references to it. The current authentication and business flow uses active project components instead.`;
+					return `Removing \`${target}\` because I couldn't find any active references to it. The current authentication and business flow uses active project components instead.`;
 				}
 			}
-			return `I'm removing \`${target}\`. I can see that this deletes the directory or file, but I couldn't establish why it is safe to remove from the available project context.`;
+			return `For \`${target}\`, I can see that this deletes the directory or file, but I couldn't establish why it is safe to remove from the available project context.`;
 		}
 
 		// 2. Complex Regex
 		if (action.hasComplexRegex) {
 			const purpose = this.describeRegexPurpose(action.detectedRegex || '');
-			return `I'm adding a regex pattern to ${purpose}. It is designed specifically for this input format without requiring a general parsing library.`;
+			return `This regex is designed to ${purpose} specifically for this input format without requiring a general parsing library.`;
 		}
 
 		// 3. Architectural Boundary / Contract Introduction
