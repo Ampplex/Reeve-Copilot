@@ -1,76 +1,166 @@
-# Visual Studio Code - Open Source ("Code - OSS")
-[![Feature Requests](https://img.shields.io/github/issues/microsoft/vscode/feature-request.svg)](https://github.com/microsoft/vscode/issues?q=is%3Aopen+is%3Aissue+label%3Afeature-request+sort%3Areactions-%2B1-desc)
-[![Bugs](https://img.shields.io/github/issues/microsoft/vscode/bug.svg)](https://github.com/microsoft/vscode/issues?utf8=✓&q=is%3Aissue+is%3Aopen+label%3Abug)
+# Reeve Copilot
 
-## The Repository
+**Reeve Copilot** is a VS Code-based AI coding assistant with persistent long-term memory, powered by [Reeve](https://mcp.reeve.co.in). It extends GitHub Copilot Chat with the ability to remember your conversations, preferences, and project context across sessions — so it gets smarter the more you use it.
 
-This repository ("`Code - OSS`") is where we (Microsoft) develop the [Visual Studio Code](https://code.visualstudio.com) product together with the community. Not only do we work on code and issues here, but we also publish our [roadmap](https://github.com/microsoft/vscode/wiki/Roadmap), [monthly iteration plans](https://github.com/microsoft/vscode/wiki/Iteration-Plans), and our [endgame plans](https://github.com/microsoft/vscode/wiki/Running-the-Endgame). This source code is available to everyone under the standard [MIT license](https://github.com/microsoft/vscode/blob/main/LICENSE.txt).
+## How It Works
 
-## Visual Studio Code
+Reeve Copilot integrates with the **Reeve MCP Server** using the Model Context Protocol (MCP) over Server-Sent Events (SSE). Every time you chat:
 
-<p align="center">
-  <img alt="VS Code in action" src="https://github.com/user-attachments/assets/56af271c-949d-454c-a3ea-16188c063414">
-</p>
+1. **Your message is stored** in Reeve's graph-based memory (Neo4j)
+2. **Relevant past context** is retrieved and injected into the prompt
+3. **The AI response is also stored** — building a bidirectional memory loop
 
-[Visual Studio Code](https://code.visualstudio.com) is a distribution of the `Code - OSS` repository with Microsoft-specific customizations released under a traditional [Microsoft product license](https://code.visualstudio.com/License/).
+```
+┌──────────────────────────────────────────────────┐
+│                  Reeve Copilot                   │
+│                                                  │
+│  User prompt ──► queryMemory() ──► Reeve MCP     │
+│       │              │             (SSE + JSON-RPC)
+│       │              ▼                           │
+│       │     Past context injected                │
+│       │         into prompt                      │
+│       ▼                                          │
+│  Copilot LLM generates response                 │
+│       │                                          │
+│       ▼                                          │
+│  storeMemory() ──► Reeve MCP                     │
+│  (user msg + AI response persisted)              │
+└──────────────────────────────────────────────────┘
+```
 
-[Visual Studio Code](https://code.visualstudio.com) combines the simplicity of a code editor with what developers need for their core edit-build-debug cycle. It provides comprehensive code editing, navigation, and understanding support along with lightweight debugging, a rich extensibility model, and lightweight integration with existing tools.
+## Setup
 
-Visual Studio Code is updated monthly with new features and bug fixes. You can download it for Windows, macOS, and Linux on the [Visual Studio Code website](https://code.visualstudio.com/Download). To get the latest releases every day, install the [Insiders build](https://code.visualstudio.com/insiders).
+### Prerequisites
 
-## Contributing
+- **Node.js** v22+ (recommend using [fnm](https://github.com/Schniz/fnm))
+- **Reeve API Key** — get one from [Reeve](https://mcp.reeve.co.in)
 
-There are many ways in which you can participate in this project, for example:
+### Build from Source
 
-* [Submit bugs and feature requests](https://github.com/microsoft/vscode/issues), and help us verify them as they are checked in
-* Review [source code changes](https://github.com/microsoft/vscode/pulls)
-* Review the [documentation](https://github.com/microsoft/vscode-docs) and make pull requests for anything from typos to new content.
+```bash
+# Clone the repository
+git clone https://github.com/Ampplex/Reeve-Copilot.git
+cd Reeve-Copilot/vscode
 
-If you are interested in fixing issues and contributing directly to the codebase, please see the document [How to Contribute](https://github.com/microsoft/vscode/wiki/How-to-Contribute), which covers the following:
+# Install dependencies
+npm install
 
-* [How to build and run from source](https://github.com/microsoft/vscode/wiki/How-to-Contribute)
-* [The development workflow, including debugging and running tests](https://github.com/microsoft/vscode/wiki/How-to-Contribute#debugging)
-* [Coding guidelines](https://github.com/microsoft/vscode/wiki/Coding-Guidelines)
-* [Submitting pull requests](https://github.com/microsoft/vscode/wiki/How-to-Contribute#pull-requests)
-* [Finding an issue to work on](https://github.com/microsoft/vscode/wiki/How-to-Contribute#where-to-contribute)
-* [Contributing to translations](https://aka.ms/vscodeloc)
+# Build the Copilot extension
+cd extensions/copilot
+npm install
+node .esbuild.mts --dev
 
-## Feedback
+# Run Reeve Copilot
+cd ../..
+./scripts/code.sh
+```
 
-* Ask a question on [Stack Overflow](https://stackoverflow.com/questions/tagged/vscode)
-* [Request a new feature](CONTRIBUTING.md)
-* Upvote [popular feature requests](https://github.com/microsoft/vscode/issues?q=is%3Aopen+is%3Aissue+label%3Afeature-request+sort%3Areactions-%2B1-desc)
-* [File an issue](https://github.com/microsoft/vscode/issues)
-* Connect with the extension author community on [GitHub Discussions](https://github.com/microsoft/vscode-discussions/discussions) or [Slack](https://aka.ms/vscode-dev-community)
-* Follow [@code](https://x.com/code) and let us know what you think!
+### Configure Reeve
 
-See our [wiki](https://github.com/microsoft/vscode/wiki/Feedback-Channels) for a description of each of these channels and information on some other available community-driven channels.
+Open Settings (`Cmd+,`) and search for `reeve`:
 
-## Related Projects
+| Setting | Description | Default |
+|---------|-------------|---------|
+| `github.copilot.reeve.enabled` | Enable/disable Reeve memory | `true` |
+| `github.copilot.reeve.serverUrl` | Reeve MCP server URL | `https://mcp.reeve.co.in` |
+| `github.copilot.reeve.apiKey` | Your Reeve API key / auth token | — |
 
-Many of the core components and extensions to VS Code live in their own repositories on GitHub. For example, the [node debug adapter](https://github.com/microsoft/vscode-node-debug) and the [mono debug adapter](https://github.com/microsoft/vscode-mono-debug) repositories are separate from each other. For a complete list, please visit the [Related Projects](https://github.com/microsoft/vscode/wiki/Related-Projects) page on our [wiki](https://github.com/microsoft/vscode/wiki).
+Alternatively, set the `REEVE_API_KEY` or `REEVE_AUTH_TOKEN` environment variable.
 
-## Bundled Extensions
+## Where Reeve Copilot Files Live
 
-VS Code includes a set of built-in extensions located in the [extensions](extensions) folder, including grammars and snippets for many languages. Extensions that provide rich language support (inline suggestions, Go to Definition) for a language have the suffix `language-features`. For example, the `json` extension provides coloring for `JSON` and the `json-language-features` extension provides rich language support for `JSON`.
+All Reeve-specific integration code is inside `extensions/copilot/src/`:
 
-## Development Container
+```
+extensions/copilot/
+├── src/
+│   ├── platform/reeve/
+│   │   ├── common/
+│   │   │   └── reeveClient.ts          # IReeveClient interface & types
+│   │   ├── node/
+│   │   │   └── reeveClient.ts          # MCP SSE client implementation
+│   │   └── test/node/
+│   │       └── reeveClient.spec.ts     # Unit tests (11 tests)
+│   │
+│   └── extension/
+│       ├── conversation/vscode-node/
+│       │   └── chatParticipants.ts     # Memory injection & persistence in chat
+│       ├── tools/node/
+│       │   ├── reeveSearchMemoryTool.ts    # LLM tool: copilot_reeveSearchMemory
+│       │   └── test/
+│       │       └── reeveSearchMemoryTool.spec.ts
+│       └── extension/vscode-node/
+│           └── services.ts            # DI registration for IReeveClient
+│
+├── package.json                       # Extension manifest & settings schema
+└── .esbuild.mts                       # Build script
+```
 
-This repository includes a Visual Studio Code Dev Containers / GitHub Codespaces development container.
+### Key Files
 
-* For [Dev Containers](https://aka.ms/vscode-remote/download/containers), use the **Dev Containers: Clone Repository in Container Volume...** command, which creates a Docker volume for better disk I/O on macOS and Windows.
-  * If you already have VS Code and Docker installed, you can also click [here](https://vscode.dev/redirect?url=vscode://ms-vscode-remote.remote-containers/cloneInVolume?url=https://github.com/microsoft/vscode) to get started. This will cause VS Code to automatically install the Dev Containers extension if needed, clone the source code into a container volume, and spin up a dev container for use.
+| File | Purpose |
+|------|---------|
+| [`platform/reeve/node/reeveClient.ts`](vscode/extensions/copilot/src/platform/reeve/node/reeveClient.ts) | Core MCP client — SSE connection, 3-way handshake, `tools/call` JSON-RPC, Bearer auth |
+| [`platform/reeve/common/reeveClient.ts`](vscode/extensions/copilot/src/platform/reeve/common/reeveClient.ts) | `IReeveClient` service interface and type definitions |
+| [`conversation/vscode-node/chatParticipants.ts`](vscode/extensions/copilot/src/extension/conversation/vscode-node/chatParticipants.ts) | Hooks into Copilot chat — queries memory before each prompt, stores both user messages and AI responses |
+| [`tools/node/reeveSearchMemoryTool.ts`](vscode/extensions/copilot/src/extension/tools/node/reeveSearchMemoryTool.ts) | Registers `copilot_reeveSearchMemory` as a tool the LLM can invoke autonomously |
+| [`extension/vscode-node/services.ts`](vscode/extensions/copilot/src/extension/extension/vscode-node/services.ts) | Dependency injection — registers `ReeveClient` as the `IReeveClient` singleton |
 
-* For Codespaces, install the [GitHub Codespaces](https://marketplace.visualstudio.com/items?itemName=GitHub.codespaces) extension in VS Code, and use the **Codespaces: Create New Codespace** command.
+## Architecture
 
-Docker / the Codespace should have at least **4 cores and 6 GB of RAM (8 GB recommended)** to run a full build. See the [development container README](.devcontainer/README.md) for more information.
+### MCP over SSE Protocol Flow
 
-## Code of Conduct
+```
+Client (Reeve Copilot)                    Server (mcp.reeve.co.in)
+        │                                          │
+        │──── GET /sse ────────────────────────────►│
+        │     Authorization: Bearer <token>         │
+        │                                          │
+        │◄─── SSE: endpoint event ─────────────────│
+        │     data: /messages?sessionId=xxx         │
+        │                                          │
+        │──── POST /messages?sessionId=xxx ────────►│
+        │     { "method": "initialize", ... }       │
+        │                                          │
+        │◄─── SSE: message event ──────────────────│
+        │     { "result": { capabilities: ... } }   │
+        │                                          │
+        │──── POST /messages?sessionId=xxx ────────►│
+        │     { "method": "notifications/initialized" }
+        │                                          │
+        │──── POST /messages?sessionId=xxx ────────►│
+        │     { "method": "tools/call",             │
+        │       "params": { "name": "retrieve_memory_context",
+        │                   "arguments": { ... } } }│
+        │                                          │
+        │◄─── SSE: message event ──────────────────│
+        │     { "result": { "content": [...] } }    │
+        └──────────────────────────────────────────┘
+```
 
-This project has adopted the [Microsoft Open Source Code of Conduct](https://opensource.microsoft.com/codeofconduct/). For more information, see the [Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or comments.
+### Memory Tools
+
+| MCP Tool | Description |
+|----------|-------------|
+| `retrieve_memory_context` | Query past memories by question + speaker |
+| `store_memory` | Persist text (conversations, facts) with speaker partition |
+| `query_memory` | Structured memory query |
+
+## Running Tests
+
+```bash
+cd extensions/copilot
+npx vitest run src/platform/reeve/test/node/reeveClient.spec.ts
+npx vitest run src/extension/tools/node/test/reeveSearchMemoryTool.spec.ts
+```
+
+## Design Principles
+
+- **Fail-safe**: If Reeve is down, disabled, or times out (1500ms), Copilot works normally
+- **Zero auth changes**: No modifications to GitHub Copilot's authentication, token handling, or billing
+- **Native protocol**: MCP SSE + JSON-RPC implemented with native `fetch` — no external SDK dependencies
+- **Bidirectional memory**: Both user prompts and AI responses are stored for full conversation recall
 
 ## License
 
-Copyright (c) Microsoft Corporation. All rights reserved.
-
-Licensed under the [MIT](LICENSE.txt) license.
+Copyright (c) 2026 Ankesh Kumar. Licensed under the [MIT License](LICENSE.txt).
