@@ -505,7 +505,7 @@ The applicable upstream Microsoft source is distributed under the MIT license. T
 See:
 
 ```text
-LICENSE.txt
+UPSTREAM-MIT-LICENSE.txt
 ```
 
 for the upstream license.
