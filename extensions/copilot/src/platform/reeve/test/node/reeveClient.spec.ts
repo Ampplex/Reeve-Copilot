@@ -187,4 +187,165 @@ describe('ReeveClient', () => {
 		expect(storeResult?.success).toBe(true);
 		expect(storeResult?.id).toBe('stored-123');
 	});
+
+	it('7. native MCP over SSE: performs handshake, passes Bearer auth, and executes retrieve_memory_context tool', async () => {
+		let streamController: any;
+		const encoder = new TextEncoder();
+		const capturedCalls: Array<{ url: string; method: string; headers: Record<string, string>; body?: any }> = [];
+
+		globalThis.fetch = vi.fn().mockImplementation(async (url: string, init?: RequestInit) => {
+			const headers = (init?.headers ?? {}) as Record<string, string>;
+			capturedCalls.push({
+				url: String(url),
+				method: init?.method ?? 'GET',
+				headers,
+				body: init?.body ? JSON.parse(String(init.body)) : undefined,
+			});
+
+			if (String(url).endsWith('/sse')) {
+				const stream = new ReadableStream<Uint8Array>({
+					start(controller) {
+						streamController = controller;
+						controller.enqueue(encoder.encode('event: endpoint\ndata: /messages?session_id=sess-abc\n\n'));
+					},
+				});
+				return {
+					ok: true,
+					status: 200,
+					headers: new Headers({ 'content-type': 'text/event-stream' }),
+					body: stream,
+				} as Response;
+			}
+
+			if (String(url).includes('/messages?session_id=sess-abc')) {
+				const body = JSON.parse(String(init?.body));
+				if (body.method === 'initialize') {
+					streamController.enqueue(encoder.encode(`event: message\ndata: ${JSON.stringify({ jsonrpc: '2.0', id: body.id, result: { serverInfo: { name: 'threelane-memory' } } })}\n\n`));
+					return { ok: true, status: 200 } as Response;
+				}
+				if (body.method === 'notifications/initialized') {
+					return { ok: true, status: 200 } as Response;
+				}
+				if (body.method === 'tools/call' && body.params.name === 'retrieve_memory_context') {
+					streamController.enqueue(encoder.encode(`event: message\ndata: ${JSON.stringify({
+						jsonrpc: '2.0',
+						id: body.id,
+						result: {
+							content: [{
+								type: 'text',
+								text: 'Relevant Reeve Memory:\n- [Episode 1] Fact: We use SQLite WAL mode for concurrency.\n- [Episode 2] Fact: Memory calls must be non-blocking.'
+							}]
+						}
+					})}\n\n`));
+					return { ok: true, status: 200 } as Response;
+				}
+			}
+
+			return { ok: false, status: 404 } as Response;
+		});
+
+		const result = await client.queryMemory({
+			query: 'How is concurrency handled?',
+		});
+
+		expect(result.success).toBe(true);
+		expect(result.items.length).toBe(2);
+		expect(result.items[0].content).toContain('SQLite WAL mode');
+		expect(result.items[1].content).toContain('non-blocking');
+
+		// Verify Bearer auth token was passed on SSE GET and message POST
+		expect(capturedCalls[0].url).toContain('/sse');
+		expect(capturedCalls[0].headers['Authorization']).toBe('Bearer test-reeve-api-key');
+		expect(capturedCalls[1].headers['Authorization']).toBe('Bearer test-reeve-api-key');
+	});
+
+	it('8. native MCP over SSE: executes store_memory tool with speaker partition', async () => {
+		let streamController: any;
+		const encoder = new TextEncoder();
+		const capturedCalls: Array<{ url: string; method: string; headers: Record<string, string>; body?: any }> = [];
+
+		globalThis.fetch = vi.fn().mockImplementation(async (url: string, init?: RequestInit) => {
+			const headers = (init?.headers ?? {}) as Record<string, string>;
+			capturedCalls.push({
+				url: String(url),
+				method: init?.method ?? 'GET',
+				headers,
+				body: init?.body ? JSON.parse(String(init.body)) : undefined,
+			});
+
+			if (String(url).endsWith('/sse')) {
+				const stream = new ReadableStream<Uint8Array>({
+					start(controller) {
+						streamController = controller;
+						controller.enqueue(encoder.encode('event: endpoint\ndata: /messages?session_id=sess-store\n\n'));
+					},
+				});
+				return {
+					ok: true,
+					status: 200,
+					headers: new Headers({ 'content-type': 'text/event-stream' }),
+					body: stream,
+				} as Response;
+			}
+
+			if (String(url).includes('/messages?session_id=sess-store')) {
+				const body = JSON.parse(String(init?.body));
+				if (body.method === 'initialize') {
+					streamController.enqueue(encoder.encode(`event: message\ndata: ${JSON.stringify({ jsonrpc: '2.0', id: body.id, result: { serverInfo: { name: 'threelane-memory' } } })}\n\n`));
+					return { ok: true, status: 200 } as Response;
+				}
+				if (body.method === 'notifications/initialized') {
+					return { ok: true, status: 200 } as Response;
+				}
+				if (body.method === 'tools/call' && body.params.name === 'store_memory') {
+					// Verify tool arguments match Reeve schema (text, speaker)
+					expect(body.params.arguments.text).toBe('User prefers Python over JavaScript');
+					expect(body.params.arguments.speaker).toBe('test-repo');
+
+					streamController.enqueue(encoder.encode(`event: message\ndata: ${JSON.stringify({
+						jsonrpc: '2.0',
+						id: body.id,
+						result: {
+							content: [{
+								type: 'text',
+								text: JSON.stringify({ pending_id: 'pending-abc-123', persisting: true })
+							}]
+						}
+					})}\n\n`));
+					return { ok: true, status: 200 } as Response;
+				}
+			}
+
+			return { ok: false, status: 404 } as Response;
+		});
+
+		const storeResult = await client.storeMemory?.({
+			fact: 'User prefers Python over JavaScript',
+			namespace: 'test-repo',
+		});
+
+		expect(storeResult?.success).toBe(true);
+		expect(storeResult?.id).toBe('pending-abc-123');
+
+		// Verify Bearer auth header on store call
+		const storeCall = capturedCalls.find(c => c.body?.method === 'tools/call');
+		expect(storeCall?.headers['Authorization']).toBe('Bearer test-reeve-api-key');
+	});
+
+	it('9. authentication error (HTTP 401): returns clear auth failure without throwing', async () => {
+		globalThis.fetch = vi.fn().mockResolvedValue({
+			ok: false,
+			status: 401,
+			statusText: 'Unauthorized',
+			headers: new Headers({ 'www-authenticate': 'Bearer realm="mcp"' }),
+		} as Response);
+
+		const result = await client.queryMemory({
+			query: 'Should fail with 401',
+		});
+
+		expect(result.success).toBe(false);
+		expect(result.error).toMatch(/401/);
+		expect(result.error).toMatch(/Authentication failed|API error/i);
+	});
 });
