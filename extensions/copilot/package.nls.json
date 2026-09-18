@@ -225,7 +225,7 @@
 	"github.copilot.command.generateSTest": "Generate STest From Last Chat Request",
 	"github.copilot.command.generateConfiguration": "Generate Debug Configuration",
 	"github.copilot.command.openWalkthrough": "Open Walkthrough",
-	"github.copilot.walkthrough.title": "GitHub Copilot",
+	"github.copilot.walkthrough.title": "Reeve Copilot",
 	"github.copilot.walkthrough.description": "Your AI pair programmer to write code faster and smarter",
 	"github.copilot.walkthrough.signIn.title": "Sign in with GitHub",
 	"github.copilot.walkthrough.signIn.description": "To get started with Copilot, sign in with your GitHub account.\nMake sure you're using the correct GitHub account. You can also sign in later using the account menu.\n\n[Sign In](command:workbench.action.chat.triggerSetupForceSignIn)",

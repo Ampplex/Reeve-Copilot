@@ -4,6 +4,9 @@
  * license information.
  *--------------------------------------------------------------------------------*/
 
+import * as cp from 'node:child_process';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import * as vscode from 'vscode';
 import { ILogService } from '../../log/common/logService';
 import { CancellationToken } from '../../../util/vs/base/common/cancellation';
@@ -15,18 +18,20 @@ import {
 	ReeveStoreParams,
 	ReeveStoreResult
 } from '../common/reeveClient';
+import { ISessionActionObserver, ActionExplanation } from '../common/reeveActionObserver';
+import { HumanCenteredExplanationLayer } from './humanCenteredExplanationLayer';
 
 const DEFAULT_ENDPOINT = 'https://mcp.reeve.co.in';
-const DEFAULT_TIMEOUT_MS = 5000;
+const DEFAULT_TIMEOUT_MS = 15000;
 const CONFIG_SECTION = 'github.copilot.reeve';
 
 /**
- * Manages an active MCP (Model Context Protocol) session over Server-Sent Events (SSE).
- * Connects to Reeve at `${endpoint}/sse`, performs initialize handshake,
- * and executes JSON-RPC 2.0 tool calls (e.g. store_memory, retrieve_memory_context, query_memory)
+ * Manages an active streaming connection with the Reeve Memory Engine over Server-Sent Events (SSE).
+ * Connects to Reeve at `${endpoint}/sse`, establishes protocol session,
+ * and executes memory operations (e.g. store_memory, retrieve_memory_context, query_memory)
  * with Bearer authentication on every request.
  */
-class McpSseConnection {
+class ReeveProtocolConnection {
 	private messageUrl: string | null = null;
 	private abortController: AbortController | null = null;
 	private pendingRequests = new Map<string | number, { resolve: (val: any) => void; reject: (err: any) => void }>();
@@ -34,6 +39,8 @@ class McpSseConnection {
 	private readyPromise: Promise<string> | null = null;
 	private resolveReady: ((url: string) => void) | null = null;
 	private rejectReady: ((err: any) => void) | null = null;
+
+	private connectingPromise: Promise<string> | null = null;
 
 	constructor(
 		private readonly baseEndpoint: string,
@@ -46,6 +53,7 @@ class McpSseConnection {
 	}
 
 	public close(): void {
+		this.connectingPromise = null;
 		if (this.abortController) {
 			try {
 				this.abortController.abort();
@@ -64,6 +72,10 @@ class McpSseConnection {
 	public async ensureConnected(timeoutMs: number, token?: CancellationToken): Promise<string> {
 		if (this.isConnected() && this.messageUrl) {
 			return this.messageUrl;
+		}
+
+		if (this.connectingPromise) {
+			return this.connectingPromise;
 		}
 
 		this.close();
@@ -86,8 +98,8 @@ class McpSseConnection {
 		let endpointTimer: NodeJS.Timeout | undefined;
 		const timeoutPromise = new Promise<never>((_, reject) => {
 			endpointTimer = setTimeout(() => {
-				abortController.abort(new Error(`Timed out connecting to Reeve MCP SSE after ${timeoutMs}ms`));
-				reject(new Error(`Timed out connecting to Reeve MCP SSE after ${timeoutMs}ms`));
+				abortController.abort(new Error(`Timed out connecting to Reeve SSE after ${timeoutMs}ms`));
+				reject(new Error(`Timed out connecting to Reeve SSE after ${timeoutMs}ms`));
 			}, timeoutMs);
 		});
 
@@ -99,7 +111,7 @@ class McpSseConnection {
 		});
 
 		const connectPromise = (async () => {
-			this.logService.debug(`[ReeveClient] Connecting to MCP SSE: ${sseUrl} (Auth: ${authToken ? 'present' : 'none'})`);
+			this.logService.debug(`[ReeveClient] Connecting to Reeve SSE: ${sseUrl} (Auth: ${authToken ? 'present' : 'none'})`);
 			const res = await fetch(sseUrl, {
 				method: 'GET',
 				headers,
@@ -134,16 +146,21 @@ class McpSseConnection {
 			return messageUrl;
 		})();
 
-		try {
-			return await Promise.race([connectPromise, timeoutPromise, cancelPromise]);
-		} catch (err) {
-			this.close();
-			throw err;
-		} finally {
-			if (endpointTimer) {
-				clearTimeout(endpointTimer);
+		this.connectingPromise = (async () => {
+			try {
+				return await Promise.race([connectPromise, timeoutPromise, cancelPromise]);
+			} catch (err) {
+				this.close();
+				throw err;
+			} finally {
+				this.connectingPromise = null;
+				if (endpointTimer) {
+					clearTimeout(endpointTimer);
+				}
 			}
-		}
+		})();
+
+		return await this.connectingPromise;
 	}
 
 	private async startReader(res: Response, baseEndpoint: string): Promise<void> {
@@ -179,9 +196,13 @@ class McpSseConnection {
 							try {
 								const payload = JSON.parse(currentData);
 								if (payload && payload.id !== undefined) {
-									const pending = this.pendingRequests.get(payload.id);
+									const pending = this.pendingRequests.get(payload.id)
+										?? this.pendingRequests.get(Number(payload.id))
+										?? this.pendingRequests.get(String(payload.id));
 									if (pending) {
 										this.pendingRequests.delete(payload.id);
+										this.pendingRequests.delete(Number(payload.id));
+										this.pendingRequests.delete(String(payload.id));
 										if (payload.error) {
 											pending.reject(new Error(payload.error.message || JSON.stringify(payload.error)));
 										} else {
@@ -225,7 +246,7 @@ class McpSseConnection {
 		const initPromise = new Promise((resolve, reject) => {
 			const timer = setTimeout(() => {
 				this.pendingRequests.delete(initId);
-				reject(new Error(`MCP initialize timed out after ${timeoutMs}ms`));
+				reject(new Error(`Reeve session handshake timed out after ${timeoutMs}ms`));
 			}, timeoutMs);
 
 			this.pendingRequests.set(initId, {
@@ -347,10 +368,56 @@ class McpSseConnection {
 	}
 }
 
+async function extractAttachmentText(references: readonly any[] | undefined): Promise<string> {
+	if (!references || references.length === 0) {
+		return '';
+	}
+	const chunks: string[] = [];
+	for (const ref of references) {
+		try {
+			let fileUri: vscode.Uri | undefined;
+			if (ref.value instanceof vscode.Uri) {
+				fileUri = ref.value;
+			} else if (ref.value && typeof ref.value === 'object' && 'uri' in ref.value && (ref.value as any).uri instanceof vscode.Uri) {
+				fileUri = (ref.value as any).uri;
+			}
+			if (!fileUri || fileUri.scheme !== 'file') {
+				continue;
+			}
+			const filePath = fileUri.fsPath;
+			if (!fs.existsSync(filePath)) {
+				continue;
+			}
+			const ext = path.extname(filePath).toLowerCase();
+			if (ext === '.pdf') {
+				try {
+					const script = `import pypdf, sys; r = pypdf.PdfReader(sys.argv[1]); print('\\n'.join(p.extract_text() or '' for p in r.pages))`;
+					const stdout = cp.execFileSync('python3', ['-c', script, filePath], { encoding: 'utf8', maxBuffer: 10 * 1024 * 1024, timeout: 10000 });
+					if (stdout.trim()) {
+						chunks.push(`[Attached Document: "${path.basename(filePath)}"]\n${stdout.trim()}`);
+					}
+				} catch {
+					// best-effort PDF extraction
+				}
+			} else if (['.txt', '.md', '.markdown', '.json', '.js', '.ts', '.py', '.java', '.go', '.rs', '.cpp', '.c', '.h', '.html', '.css', '.yaml', '.yml'].includes(ext)) {
+				const content = await fs.promises.readFile(filePath, 'utf8');
+				if (content.trim()) {
+					chunks.push(`[Attached Document: "${path.basename(filePath)}"]\n${content.trim().slice(0, 50000)}`);
+				}
+			}
+		} catch {
+			// ignore reference read errors
+		}
+	}
+	return chunks.join('\n\n');
+}
+
 export class ReeveClient implements IReeveClient {
 	readonly _serviceBrand: undefined;
-	private mcpConnection: McpSseConnection | null = null;
+	private connection: ReeveProtocolConnection | null = null;
 	private cachedEndpoint = '';
+	private readonly explanationLayer = new HumanCenteredExplanationLayer();
+	private readonly lastRecalledMemories = new Map<string, readonly ReeveMemoryItem[]>();
 
 	constructor(
 		@ILogService private readonly logService: ILogService,
@@ -420,18 +487,18 @@ export class ReeveClient implements IReeveClient {
 		}
 	}
 
-	private getOrCreateMcpConnection(): McpSseConnection {
+	private getOrCreateConnection(): ReeveProtocolConnection {
 		const endpoint = this.getEndpoint().replace(/\/+$/, '');
-		if (!this.mcpConnection || this.cachedEndpoint !== endpoint) {
-			this.mcpConnection?.close();
+		if (!this.connection || this.cachedEndpoint !== endpoint) {
+			this.connection?.close();
 			this.cachedEndpoint = endpoint;
-			this.mcpConnection = new McpSseConnection(
+			this.connection = new ReeveProtocolConnection(
 				endpoint,
 				() => this.getApiKey(),
 				this.logService
 			);
 		}
-		return this.mcpConnection;
+		return this.connection;
 	}
 
 	private buildHeaders(): Record<string, string> {
@@ -462,9 +529,9 @@ export class ReeveClient implements IReeveClient {
 		const timeoutMs = this.getTimeoutMs();
 		this.logService.debug(`[ReeveClient] Querying Reeve memory: query="${params.query}", namespace="${namespace}"`);
 
-		// 1. First attempt: Native Reeve MCP over SSE (tools: retrieve_memory_context / query_memory)
+		// 1. First attempt: Native Reeve memory retrieval over SSE (retrieve_memory_context / query_memory)
 		try {
-			const connection = this.getOrCreateMcpConnection();
+			const connection = this.getOrCreateConnection();
 			const result = await connection.callTool(
 				'retrieve_memory_context',
 				{ question: params.query, speaker: namespace },
@@ -493,7 +560,7 @@ export class ReeveClient implements IReeveClient {
 					const cleanText = line.replace(/^[-*•]\s*/, '');
 					if (cleanText) {
 						items.push({
-							id: `reeve-mcp-${i + 1}`,
+							id: `reeve-mem-${i + 1}`,
 							content: cleanText,
 							category: 'memory',
 						});
@@ -501,7 +568,7 @@ export class ReeveClient implements IReeveClient {
 				}
 			}
 
-			this.logService.info(`[ReeveClient] MCP SSE retrieved ${items.length} memory item(s) for "${params.query}"`);
+			this.logService.info(`[ReeveClient] Reeve engine retrieved ${items.length} memory item(s) for "${params.query}"`);
 			return {
 				success: true,
 				items,
@@ -510,7 +577,7 @@ export class ReeveClient implements IReeveClient {
 			};
 		} catch (mcpErr: any) {
 			const mcpMessage = mcpErr?.message ?? String(mcpErr);
-			this.logService.debug(`[ReeveClient] MCP tool call failed (${mcpMessage}), trying HTTP fallback.`);
+			this.logService.debug(`[ReeveClient] Reeve tool call failed (${mcpMessage}), trying HTTP fallback.`);
 
 			// If it was cancelled or explicitly timed out, return immediately
 			if (mcpMessage.includes('timed out') || mcpMessage.includes('cancelled')) {
@@ -628,9 +695,9 @@ export class ReeveClient implements IReeveClient {
 
 		const timeoutMs = this.getTimeoutMs();
 
-		// 1. First attempt: Native Reeve MCP over SSE (tool: store_memory)
+		// 1. First attempt: Native Reeve memory storage over SSE (tool: store_memory)
 		try {
-			const connection = this.getOrCreateMcpConnection();
+			const connection = this.getOrCreateConnection();
 			const result = await connection.callTool(
 				'store_memory',
 				{ text: params.fact, speaker: namespace },
@@ -651,11 +718,11 @@ export class ReeveClient implements IReeveClient {
 				}
 			}
 
-			this.logService.info(`[ReeveClient] Stored memory via MCP SSE successfully (${pendingId || 'persisting'})`);
+			this.logService.info(`[ReeveClient] Stored memory via Reeve SSE successfully (${pendingId || 'persisting'})`);
 			return { success: true, id: pendingId };
 		} catch (mcpErr: any) {
 			const mcpMessage = mcpErr?.message ?? String(mcpErr);
-			this.logService.debug(`[ReeveClient] MCP store_memory call failed (${mcpMessage}), trying HTTP fallback.`);
+			this.logService.debug(`[ReeveClient] Reeve store_memory call failed (${mcpMessage}), trying HTTP fallback.`);
 
 			if (mcpMessage.includes('timed out') || mcpMessage.includes('cancelled')) {
 				return { success: false, error: mcpMessage };
@@ -700,6 +767,176 @@ export class ReeveClient implements IReeveClient {
 		} finally {
 			clearTimeout(timer);
 			cancellationListener?.dispose();
+		}
+	}
+
+	/**
+	 * Recalls relevant project context from Reeve and injects it into the chat request prompt.
+	 * Completely encapsulates memory retrieval, reference citation, and directive formatting.
+	 */
+	public async preparePromptWithMemory(
+		request: vscode.ChatRequest,
+		stream: vscode.ChatResponseStream,
+		token?: CancellationToken
+	): Promise<{ request: vscode.ChatRequest; hasMemory: boolean; namespace: string }> {
+		const namespace = this.getNamespace();
+		if (!this.isEnabled() || !request.prompt) {
+			return { request, hasMemory: false, namespace };
+		}
+
+		try {
+			stream.progress('Recalling Reeve memory...');
+			const memoryResult = await this.queryMemory({
+				query: request.prompt,
+				limit: 5,
+			}, token);
+
+			if (memoryResult && memoryResult.success && (memoryResult.items.length > 0 || (memoryResult.answer && memoryResult.answer.trim()))) {
+				const sessionId = (request as any).sessionId || 'default_session';
+				this.lastRecalledMemories.set(sessionId, memoryResult.items || []);
+
+				const contextEntries = (memoryResult.answer && memoryResult.answer.trim())
+					? memoryResult.answer.trim()
+					: memoryResult.items.map(item => {
+						const cat = item.category ? ` [${item.category}]` : '';
+						return `• ${item.content}${cat}`;
+					}).join('\n');
+
+				const injectedContext = `[Reeve Long-Term Project Memory (namespace: "${namespace}"):
+${contextEntries}
+
+CRITICAL INSTRUCTION: You MUST use the above Reeve Long-Term Project Memory to answer the user request directly. Do NOT attempt to search workspace files or repo codebase when the answer is provided in this memory. Answer naturally and authoritatively as Copilot with Reeve Long-Term Memory.]\n\n`;
+
+				return {
+					request: {
+						...request,
+						prompt: `${injectedContext}${request.prompt}`,
+					},
+					hasMemory: true,
+					namespace,
+				};
+			}
+		} catch (err) {
+			this.logService.warn('[ReeveClient] Failed to recall Reeve memory:', err);
+		}
+
+		return { request, hasMemory: false, namespace };
+	}
+
+	/**
+	 * Encapsulated background storage of user interaction, extracting attached documents if present.
+	 */
+	public async recordInteraction(
+		userPrompt: string,
+		references?: readonly vscode.ChatPromptReference[]
+	): Promise<void> {
+		if (!this.isEnabled() || !userPrompt.trim()) {
+			return;
+		}
+		try {
+			const attachmentText = await extractAttachmentText(references);
+			const factToStore = attachmentText
+				? `${userPrompt.trim()}\n\n${attachmentText}`
+				: userPrompt.trim();
+
+			await this.storeMemory({
+				fact: factToStore,
+				speaker: 'user',
+			});
+		} catch {
+			// non-blocking fail-safe
+		}
+	}
+
+	/**
+	 * Encapsulated background storage of agent response.
+	 */
+	public async recordAgentResponse(agentResponse: string): Promise<void> {
+		if (!this.isEnabled() || !agentResponse.trim()) {
+			return;
+		}
+		try {
+			await this.storeMemory({
+				fact: agentResponse.trim(),
+				speaker: 'agent',
+			});
+		} catch {
+			// non-blocking fail-safe
+		}
+	}
+
+	/**
+	 * Renders the Reeve long-term memory attribution badge.
+	 */
+	public renderMemoryCitation(stream: vscode.ChatResponseStream, namespace: string): void {
+		try {
+			stream.markdown(new vscode.MarkdownString(`\n\n---\n*🧠 Recalled from Reeve Long-Term Memory (\`${namespace}\`)*`));
+		} catch {
+			// fail-safe
+		}
+	}
+
+	/**
+	 * Action Observer & Human-Centered Explanation Layer:
+	 */
+	public startActionObservation(sessionId: string, stream?: vscode.ChatResponseStream): ISessionActionObserver {
+		return this.explanationLayer.startSession(sessionId, stream);
+	}
+
+	public onBeforeToolAction(
+		toolName: string,
+		input: any,
+		sessionId?: string
+	): { action: any; preExplanation?: string } | undefined {
+		const recalled = sessionId ? this.lastRecalledMemories.get(sessionId) || [] : [];
+		return this.explanationLayer.onBeforeToolAction(toolName, input, sessionId, recalled);
+	}
+
+	public onAfterToolAction(
+		actionId: string,
+		result?: any,
+		success: boolean = true,
+		sessionId?: string
+	): void {
+		this.explanationLayer.onAfterToolAction(actionId, result, success, sessionId);
+	}
+
+	public recordToolAction(
+		toolName: string,
+		input: any,
+		result?: any,
+		success: boolean = true,
+		sessionId?: string
+	): void {
+		if (sessionId) {
+			const obs = this.explanationLayer.getSessionObserver(sessionId);
+			obs?.recordToolInvocation(toolName, input, result, success);
+		} else {
+			// Record to all active session observers
+			const activeObservers = (this.explanationLayer as any).activeObservers as Map<string, any>;
+			if (activeObservers) {
+				for (const obs of activeObservers.values()) {
+					obs.recordToolInvocation(toolName, input, result, success);
+				}
+			}
+		}
+	}
+
+	public async finalizeActionObservation(
+		sessionId: string,
+		agentResponseText: string,
+		stream?: vscode.ChatResponseStream
+	): Promise<ActionExplanation | undefined> {
+		const recalled = this.lastRecalledMemories.get(sessionId) || [];
+		try {
+			return await this.explanationLayer.finalizeSession(
+				sessionId,
+				agentResponseText,
+				stream,
+				recalled
+			);
+		} finally {
+			this.lastRecalledMemories.delete(sessionId);
 		}
 	}
 }

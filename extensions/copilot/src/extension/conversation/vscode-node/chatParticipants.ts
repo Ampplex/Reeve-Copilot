@@ -179,7 +179,7 @@ class ChatAgents implements IDisposable {
 
 You can also ask me questions about your editor selection by [starting an inline chat session](command:inlineChat.start).
 
-Learn more about [GitHub Copilot](https://docs.github.com/copilot/using-github-copilot/getting-started-with-github-copilot?tool=vscode&utm_source=editor&utm_medium=chat-panel&utm_campaign=2024q3-em-MSFT-getstarted) in [Visual Studio Code](https://code.visualstudio.com/docs/copilot/overview). Or explore the [Copilot walkthrough](command:github.copilot.open.walkthrough).`,
+Learn more about [Reeve Copilot](https://reeve.co.in). Or explore the [Copilot walkthrough](command:github.copilot.open.walkthrough).`,
 			comment: `{Locked='](command:inlineChat.start)'}`
 		});
 		const markdownString = new vscode.MarkdownString(helpPostfix);
@@ -252,40 +252,25 @@ Learn more about [GitHub Copilot](https://docs.github.com/copilot/using-github-c
 					this.promptCategorizerService.categorizePrompt(request, context, telemetryMessageId);
 				}
 
-				// Reeve integration: Store every user prompt and query Reeve memory to selectively inject context
-				if (request.prompt && this.reeveClient?.isEnabled()) {
-					// Store user query to Reeve (non-blocking fail-safe)
-					this.reeveClient.storeMemory?.({
-						fact: request.prompt,
-						speaker: 'user',
-					})?.catch(() => { /* non-blocking fail-safe */ });
+				let hasReeveMemory = false;
+				let reeveNamespace = '';
+				const originalUserPrompt = request.prompt;
 
-					// Query Reeve for relevant durable project context with bounded timeout
+				// Reeve Long-Term Memory: Encapsulated memory recall and prompt preparation
+				if (originalUserPrompt && this.reeveClient?.isEnabled()) {
 					try {
-						const memoryPromise = this.reeveClient.queryMemory({
-							query: request.prompt,
-							limit: 3,
-						}, token);
-
-						// Bounded retrieval timeout (max 1500ms) so user chat experience is never stalled
-						const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 1500));
-						const memoryResult = await Promise.race([memoryPromise, timeoutPromise]);
-
-						if (memoryResult && memoryResult.success && memoryResult.items.length > 0) {
-							const contextEntries = memoryResult.items.map(item => {
-								const cat = item.category ? ` [${item.category}]` : '';
-								return `• ${item.content}${cat}`;
-							}).join('\n');
-
-							const injectedContext = `[Reeve Durable Project Context (namespace: "${memoryResult.namespace}"):\n${contextEntries}]\n\n`;
-							request = {
-								...request,
-								prompt: `${injectedContext}${request.prompt}`
-							};
+						const prep = await this.reeveClient.preparePromptWithMemory?.(request, stream, token);
+						if (prep) {
+							request = prep.request;
+							hasReeveMemory = prep.hasMemory;
+							reeveNamespace = prep.namespace;
 						}
-					} catch {
-						// Fail-safe: Reeve memory retrieval must never block or break normal Copilot flow
+					} catch (reeveErr) {
+						this.logService.warn('[ReeveClient] Failed to recall Reeve memory:', reeveErr);
 					}
+
+					// Encapsulated background storage of user prompt and any attached documents
+					this.reeveClient.recordInteraction?.(originalUserPrompt, request.references)?.catch(() => { /* non-blocking fail-safe */ });
 				}
 
 				const defaultIntentId = typeof defaultIntentIdOrGetter === 'function' ?
@@ -313,6 +298,11 @@ Learn more about [GitHub Copilot](https://docs.github.com/copilot/using-github-c
 					}
 				});
 
+				const sessionId = request.sessionId || generateUuid();
+				if (this.reeveClient?.isEnabled()) {
+					this.reeveClient.startActionObservation?.(sessionId, spiedStream);
+				}
+
 				const handler = this.instantiationService.createInstance(ChatParticipantRequestHandler, context.history, request, spiedStream, token, { agentName: name, agentId: id, intentId }, () => context.yieldRequested, telemetryMessageId);
 
 				let result: vscode.ChatResult;
@@ -330,14 +320,18 @@ Learn more about [GitHub Copilot](https://docs.github.com/copilot/using-github-c
 							result = await retryHandler.getResult();
 						}
 					}
+
+					if (hasReeveMemory) {
+						this.reeveClient?.renderMemoryCitation?.(stream, reeveNamespace);
+					}
 				} finally {
-					// Reeve integration: Persist full agent response to Reeve
-					const fullAgentResponse = agentResponseChunks.join('');
-					if (fullAgentResponse.trim() && this.reeveClient?.isEnabled()) {
-						this.reeveClient.storeMemory?.({
-							fact: fullAgentResponse.trim(),
-							speaker: 'agent',
-						})?.catch(() => { /* non-blocking fail-safe */ });
+					// Reeve Long-Term Memory & Human-Centered Change Explanation
+					const fullAgentResponse = agentResponseChunks.join('').trim();
+					if (this.reeveClient?.isEnabled()) {
+						if (fullAgentResponse) {
+							this.reeveClient.recordAgentResponse?.(fullAgentResponse)?.catch(() => { /* non-blocking fail-safe */ });
+						}
+						await this.reeveClient.finalizeActionObservation?.(sessionId, fullAgentResponse, stream)?.catch(() => { /* non-blocking fail-safe */ });
 					}
 				}
 

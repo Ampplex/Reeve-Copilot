@@ -1,7 +1,7 @@
 {
   "name": "copilot-chat",
-  "displayName": "Reeve",
-  "description": "AI Coding Agent powered by GitHub Copilot models",
+  "displayName": "Reeve Copilot",
+  "description": "AI Coding Agent with persistent Reeve memory",
   "version": "0.67.0",
   "build": "1",
   "completionsCoreVersion": "1.378.1799",
@@ -2403,7 +2403,7 @@
     ],
     "interactiveSession": [
       {
-        "label": "GitHub Copilot",
+        "label": "Reeve Copilot",
         "id": "copilot",
         "icon": "",
         "when": "!github.copilot.interactiveSession.disabled"
@@ -3065,106 +3065,106 @@
         "command": "github.copilot.chat.openSuggestionsPanel",
         "title": "Open Completions Panel",
         "enablement": "github.copilot.extensionUnification.activated && !isWeb",
-        "category": "GitHub Copilot"
+        "category": "Reeve Copilot"
       },
       {
         "command": "github.copilot.chat.toggleStatusMenu",
         "title": "Open Status Menu",
         "enablement": "github.copilot.extensionUnification.activated",
-        "category": "GitHub Copilot"
+        "category": "Reeve Copilot"
       },
       {
         "command": "github.copilot.chat.completions.disable",
         "title": "Disable Inline Suggestions",
         "enablement": "github.copilot.extensionUnification.activated && github.copilot.activated && config.editor.inlineSuggest.enabled && github.copilot.completions.enabled",
-        "category": "GitHub Copilot"
+        "category": "Reeve Copilot"
       },
       {
         "command": "github.copilot.chat.completions.enable",
         "title": "Enable Inline Suggestions",
         "enablement": "github.copilot.extensionUnification.activated && github.copilot.activated && !(config.editor.inlineSuggest.enabled && github.copilot.completions.enabled)",
-        "category": "GitHub Copilot"
+        "category": "Reeve Copilot"
       },
       {
         "command": "github.copilot.chat.completions.toggle",
         "title": "Toggle (Enable/Disable) Inline Suggestions",
         "enablement": "github.copilot.extensionUnification.activated && github.copilot.activated",
-        "category": "GitHub Copilot"
+        "category": "Reeve Copilot"
       },
       {
         "command": "github.copilot.chat.openModelPicker",
         "title": "Change Completions Model",
-        "category": "GitHub Copilot",
+        "category": "Reeve Copilot",
         "enablement": "github.copilot.extensionUnification.activated && !isWeb && github.copilot.completions.hasMultipleModels"
       },
       {
         "command": "github.copilot.chat.applyCopilotCLIAgentSessionChanges",
         "title": "%github.copilot.command.applyCopilotCLIAgentSessionChanges%",
         "enablement": "!chatSessionRequestInProgress",
-        "category": "GitHub Copilot"
+        "category": "Reeve Copilot"
       },
       {
         "command": "github.copilot.chat.applyCopilotCLIAgentSessionChanges.apply",
         "title": "%github.copilot.chat.applyCopilotCLIAgentSessionChanges.apply%",
         "enablement": "!chatSessionRequestInProgress",
         "icon": "$(git-stash-pop)",
-        "category": "GitHub Copilot"
+        "category": "Reeve Copilot"
       },
       {
         "command": "github.copilot.chat.mergeCopilotCLIAgentSessionChanges.merge",
         "title": "%github.copilot.chat.mergeCopilotCLIAgentSessionChanges.merge%",
         "enablement": "!chatSessionRequestInProgress",
         "icon": "$(git-merge)",
-        "category": "GitHub Copilot"
+        "category": "Reeve Copilot"
       },
       {
         "command": "github.copilot.chat.mergeCopilotCLIAgentSessionChanges.mergeAndSync",
         "title": "%github.copilot.chat.mergeCopilotCLIAgentSessionChanges.mergeAndSync%",
         "enablement": "!chatSessionRequestInProgress",
         "icon": "$(sync)",
-        "category": "GitHub Copilot"
+        "category": "Reeve Copilot"
       },
       {
         "command": "github.copilot.sessions.commit",
         "title": "%github.copilot.command.sessions.commit%",
         "enablement": "!chatSessionRequestInProgress && !sessions.hasGitOperationInProgress",
         "icon": "$(git-commit)",
-        "category": "GitHub Copilot"
+        "category": "Reeve Copilot"
       },
       {
         "command": "github.copilot.sessions.commitAndSync",
         "title": "%github.copilot.command.sessions.commitAndSync%",
         "enablement": "!chatSessionRequestInProgress && !sessions.hasGitOperationInProgress",
         "icon": "$(sync)",
-        "category": "GitHub Copilot"
+        "category": "Reeve Copilot"
       },
       {
         "command": "github.copilot.sessions.sync",
         "title": "%github.copilot.command.sessions.sync%",
         "enablement": "!chatSessionRequestInProgress && !sessions.hasGitOperationInProgress",
         "icon": "$(sync)",
-        "category": "GitHub Copilot"
+        "category": "Reeve Copilot"
       },
       {
         "command": "github.copilot.chat.createPullRequestCopilotCLIAgentSession.createPR",
         "title": "%github.copilot.chat.createPullRequestCopilotCLIAgentSession.createPR%",
         "enablement": "!chatSessionRequestInProgress && !sessions.hasGitOperationInProgress",
         "icon": "$(git-pull-request-create)",
-        "category": "GitHub Copilot"
+        "category": "Reeve Copilot"
       },
       {
         "command": "github.copilot.chat.createDraftPullRequestCopilotCLIAgentSession.createDraftPR",
         "title": "%github.copilot.chat.createDraftPullRequestCopilotCLIAgentSession.createDraftPR%",
         "enablement": "!chatSessionRequestInProgress && !sessions.hasGitOperationInProgress",
         "icon": "$(git-pull-request-draft)",
-        "category": "GitHub Copilot"
+        "category": "Reeve Copilot"
       },
       {
         "command": "github.copilot.sessions.discardChanges",
         "title": "%github.copilot.command.sessions.discardChanges%",
         "enablement": "!chatSessionRequestInProgress",
         "icon": "$(discard)",
-        "category": "GitHub Copilot"
+        "category": "Reeve Copilot"
       },
       {
         "command": "github.copilot.chat.copilotCLI.addFileReference",
@@ -3214,30 +3214,30 @@
         "command": "github.copilot.chat.cloudSessions.openRepository",
         "title": "%github.copilot.command.cloudSessions.openRepository.title%",
         "icon": "$(repo)",
-        "category": "GitHub Copilot"
+        "category": "Reeve Copilot"
       },
       {
         "command": "github.copilot.chat.cloudSessions.clearCaches",
         "title": "%github.copilot.command.cloudSessions.clearCaches.title%",
-        "category": "GitHub Copilot"
+        "category": "Reeve Copilot"
       },
       {
         "command": "github.copilot.sessions.refreshChanges",
         "title": "%github.copilot.command.sessions.refreshChanges%",
         "icon": "$(refresh)",
-        "category": "GitHub Copilot"
+        "category": "Reeve Copilot"
       },
       {
         "command": "github.copilot.sessions.initializeRepository",
         "title": "%github.copilot.command.sessions.initializeRepository%",
         "enablement": "!chatSessionRequestInProgress",
         "icon": "$(repo)",
-        "category": "GitHub Copilot"
+        "category": "Reeve Copilot"
       }
     ],
     "configuration": [
       {
-        "title": "GitHub Copilot Chat",
+        "title": "Reeve Copilot Chat",
         "id": "stable",
         "properties": {
           "github.copilot.reeve.enabled": {

@@ -22,6 +22,7 @@ import { IInstantiationService } from '../../../util/vs/platform/instantiation/c
 import { getContributedToolName, getToolName, mapContributedToolNamesInSchema, mapContributedToolNamesInString, ToolName } from '../common/toolNames';
 import { ICopilotTool, ICopilotToolExtension, modelSpecificToolApplies, ToolRegistry } from '../common/toolsRegistry';
 import { BaseToolsService } from '../common/toolsService';
+import { IReeveClient } from '../../../platform/reeve/common/reeveClient';
 
 export class ToolsService extends BaseToolsService {
 	declare _serviceBrand: undefined;
@@ -216,6 +217,15 @@ export class ToolsService extends BaseToolsService {
 			}
 		}
 
+		// Human-Centered Change Explanation: Pre-action explanation before execution/approval
+		let preActionResult: { action: any; preExplanation?: string } | undefined;
+		try {
+			const reeveClient = this._instantiationService.invokeFunction(accessor => accessor.get(IReeveClient));
+			preActionResult = reeveClient?.onBeforeToolAction?.(String(name), options.input, chatSessionId);
+		} catch {
+			// fail-safe
+		}
+
 		return vscode.lm.invokeTool(getContributedToolName(name), options, token).then(
 			result => {
 				span.setStatus(SpanStatusCode.OK);
@@ -240,6 +250,19 @@ export class ToolsService extends BaseToolsService {
 				GenAiMetrics.recordToolCallCount(this._otelService, String(name), true);
 				GenAiMetrics.recordToolCallDuration(this._otelService, String(name), durationMs);
 				emitToolCallEvent(this._otelService, String(name), durationMs, true);
+
+				// Notify Reeve Action Observer (fail-safe)
+				try {
+					const reeveClient = this._instantiationService.invokeFunction(accessor => accessor.get(IReeveClient));
+					if (preActionResult?.action?.id) {
+						reeveClient?.onAfterToolAction?.(preActionResult.action.id, result, true, chatSessionId);
+					} else {
+						reeveClient?.recordToolAction?.(String(name), options.input, result, true, chatSessionId);
+					}
+				} catch {
+					// fail-safe
+				}
+
 				return result;
 			},
 			err => {
@@ -252,6 +275,19 @@ export class ToolsService extends BaseToolsService {
 				GenAiMetrics.recordToolCallCount(this._otelService, String(name), false);
 				GenAiMetrics.recordToolCallDuration(this._otelService, String(name), durationMs);
 				emitToolCallEvent(this._otelService, String(name), durationMs, false, err instanceof Error ? err.constructor.name : 'Error');
+
+				// Notify Reeve Action Observer (fail-safe)
+				try {
+					const reeveClient = this._instantiationService.invokeFunction(accessor => accessor.get(IReeveClient));
+					if (preActionResult?.action?.id) {
+						reeveClient?.onAfterToolAction?.(preActionResult.action.id, err, false, chatSessionId);
+					} else {
+						reeveClient?.recordToolAction?.(String(name), options.input, err, false, chatSessionId);
+					}
+				} catch {
+					// fail-safe
+				}
+
 				throw err;
 			},
 		);

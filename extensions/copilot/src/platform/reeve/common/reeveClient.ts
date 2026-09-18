@@ -82,4 +82,53 @@ export interface IReeveClient {
 	 * Store a durable new fact or architectural decision into the graph.
 	 */
 	storeMemory?(params: ReeveStoreParams, token?: CancellationToken): Promise<ReeveStoreResult>;
+
+	/**
+	 * Encapsulated high-level helpers for chat participants:
+	 */
+	preparePromptWithMemory?(
+		request: any,
+		stream: any,
+		token?: CancellationToken
+	): Promise<{ request: any; hasMemory: boolean; namespace: string }>;
+
+	recordInteraction?(
+		userPrompt: string,
+		references?: readonly any[]
+	): Promise<void>;
+
+	recordAgentResponse?(
+		agentResponse: string
+	): Promise<void>;
+
+	renderMemoryCitation?(
+		stream: any,
+		namespace: string
+	): void;
+
+	/**
+	 * Action Observer & Human-Centered Explanation Layer:
+	 */
+	startActionObservation?(sessionId: string, stream?: any): any;
+
+	onBeforeToolAction?(
+		toolName: string,
+		input: any,
+		sessionId?: string
+	): { action: any; preExplanation?: string } | undefined;
+
+	onAfterToolAction?(
+		actionId: string,
+		result?: any,
+		success?: boolean,
+		sessionId?: string
+	): void;
+
+	recordToolAction?(toolName: string, input: any, result?: any, success?: boolean, sessionId?: string): void;
+
+	finalizeActionObservation?(
+		sessionId: string,
+		agentResponseText: string,
+		stream?: any
+	): Promise<any>;
 }

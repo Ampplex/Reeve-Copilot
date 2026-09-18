@@ -1238,7 +1238,7 @@ export abstract class ToolCallingLoop<TOptions extends IToolCallingLoopOptions =
 	}
 
 	public async run(outputStream: ChatResponseStream | undefined, token: CancellationToken): Promise<IToolCallLoopResult> {
-		const agentName = this.agentName ?? 'GitHub Copilot Chat';
+		const agentName = this.agentName ?? 'Reeve Copilot Chat';
 
 		// Extract custom mode name for debug logging (kept separate from agentName to avoid metric cardinality)
 		const modeInstructions = (this.options.request as { modeInstructions2?: { name?: string; isBuiltin?: boolean } }).modeInstructions2;
