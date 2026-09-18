@@ -163,4 +163,4 @@ npx vitest run src/extension/tools/node/test/reeveSearchMemoryTool.spec.ts
 
 ## License
 
-Copyright (c) 2026 Ankesh Kumar. Licensed under the [MIT License](LICENSE.txt).
+Copyright (c) 2026 Ankesh Kumar. All rights reserved. This is proprietary software — unauthorized copying, distribution, or modification is strictly prohibited.
