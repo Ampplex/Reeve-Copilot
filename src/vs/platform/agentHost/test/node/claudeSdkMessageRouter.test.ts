@@ -159,4 +159,38 @@ suite('ClaudeSdkMessageRouter', () => {
 			flushedSessionUris: [chatChannelUri.toString()],
 		});
 	});
+
+	test('observes Claude tool_use and tool_result through Reeve explanation layer', async () => {
+		const chatChannelUri = URI.parse(buildChatUri('claude:/sess-reeve', 'default'));
+		const { router } = createRouter(disposables, chatChannelUri);
+
+		// Assistant emits a tool_use (Edit)
+		await router.handle(assistantMessage([
+			{
+				type: 'tool_use',
+				id: 'tu-reeve-1',
+				name: 'Edit',
+				input: { file_path: '/work/auth.ts', old_string: 'a', new_string: 'b' },
+			},
+		]), 'turn-1');
+
+		const observer = router.explanationLayer.getSessionObserver(chatChannelUri.toString());
+		assert.ok(observer, 'Session observer should be registered in Reeve layer');
+		const actionsBefore = observer.getActions();
+		assert.strictEqual(actionsBefore.length, 1);
+		assert.strictEqual(actionsBefore[0].toolName, 'Edit');
+		assert.strictEqual(actionsBefore[0].harness, 'claude');
+		assert.strictEqual(actionsBefore[0].executed, undefined);
+
+		// User emits tool_result
+		await router.handle(userMessage([
+			{ type: 'tool_result', tool_use_id: 'tu-reeve-1', content: 'Replacement succeeded', is_error: false },
+		]), 'turn-1');
+
+		const actionsAfter = observer.getActions();
+		assert.strictEqual(actionsAfter.length, 1);
+		assert.strictEqual(actionsAfter[0].executed, true);
+		assert.strictEqual(actionsAfter[0].success, true);
+		assert.strictEqual(actionsAfter[0].details?.result, 'Replacement succeeded');
+	});
 });

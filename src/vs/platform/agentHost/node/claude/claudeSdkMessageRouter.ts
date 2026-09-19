@@ -12,6 +12,10 @@ import { ILogService } from '../../../log/common/log.js';
 import { AgentSignal } from '../../common/agent.js';
 import type { IAgentHostClientTelemetryContext } from '../../common/agentHostTelemetry.js';
 import { ISessionDatabase } from '../../common/sessionDataService.js';
+import { ActionType } from '../../common/state/sessionActions.js';
+import { ResponsePartKind } from '../../common/state/sessionState.js';
+import { ClaudeActionAdapter } from '../reeve/reeveAdapters.js';
+import { HumanCenteredExplanationLayer } from '../reeve/humanCenteredExplanationLayer.js';
 import { ClaudeFileEditObserver } from './claudeFileEditObserver.js';
 import { ClaudeMapperState, mapSDKMessageToAgentSignals } from './claudeMapSessionEvents.js';
 import type { SubagentRegistry } from './claudeSubagentRegistry.js';
@@ -36,12 +40,12 @@ interface IClaudeSdkMessageContext {
  * forwards into every mapper invocation.
  */
 export class ClaudeSdkMessageRouter extends Disposable {
-
 	private readonly _onDidProduceSignal = this._register(new Emitter<AgentSignal>());
 	readonly onDidProduceSignal: Event<AgentSignal> = this._onDidProduceSignal.event;
 
 	private readonly _editObserver: ClaudeFileEditObserver;
 	private readonly _mapperState = new ClaudeMapperState();
+	private readonly _explanationLayer: HumanCenteredExplanationLayer;
 
 	private _clientToolOwner: ((toolName: string) => string | undefined) | undefined;
 
@@ -53,12 +57,18 @@ export class ClaudeSdkMessageRouter extends Disposable {
 		clientToolOwner: ((toolName: string) => string | undefined) | undefined = undefined,
 		@IInstantiationService instantiationService: IInstantiationService,
 		@ILogService private readonly _logService: ILogService,
+		explanationLayer?: HumanCenteredExplanationLayer,
 	) {
 		super();
 		this._clientToolOwner = clientToolOwner;
+		this._explanationLayer = explanationLayer ?? new HumanCenteredExplanationLayer();
 		this._editObserver = this._register(
 			instantiationService.createInstance(ClaudeFileEditObserver, resource.toString(), dbRef),
 		);
+	}
+
+	get explanationLayer(): HumanCenteredExplanationLayer {
+		return this._explanationLayer;
 	}
 
 	setClientToolOwner(clientToolOwner: ((toolName: string) => string | undefined) | undefined): void {
@@ -68,8 +78,30 @@ export class ClaudeSdkMessageRouter extends Disposable {
 	async handle(message: SDKMessage, turnId: string | undefined, context?: IClaudeSdkMessageContext): Promise<void> {
 		if (message.type === 'assistant') {
 			this._editObserver.observeAssistant(message, context?.mode, context?.clientContext);
+			this._observeReeveAssistant(message, turnId);
 		} else if (message.type === 'user' && turnId !== undefined) {
 			await this._editObserver.observeUser(message, turnId, this._mapperState);
+			this._observeReeveUser(message);
+		} else if (message.type === 'result') {
+			void this._explanationLayer.finalizeSession(this._chatChannelUri.toString()).then(res => {
+				if (res?.summary && turnId) {
+					this._onDidProduceSignal.fire({
+						kind: 'action',
+						resource: this._chatChannelUri,
+						action: {
+							type: ActionType.ChatResponsePart,
+							turnId,
+							part: {
+								kind: ResponsePartKind.Markdown,
+								id: `reeve-summary-${Date.now()}`,
+								content: `\n\n---\n**Reeve Session Summary**:\n${res.summary}\n`,
+							},
+						},
+					});
+				}
+			}).catch(err => {
+				this._logService.debug(`[ClaudeSdkMessageRouter] Reeve finalizeSession error: ${err}`);
+			});
 		}
 		if (turnId === undefined) {
 			return;
@@ -90,6 +122,63 @@ export class ClaudeSdkMessageRouter extends Disposable {
 			}
 		} catch (mapperErr) {
 			this._logService.warn(`[ClaudeSdkMessageRouter] mapper threw, skipping message: ${mapperErr}`);
+		}
+	}
+
+	private _observeReeveAssistant(message: Extract<SDKMessage, { type: 'assistant' }>, turnId: string | undefined): void {
+		const content = message.message.content;
+		if (!Array.isArray(content)) {
+			return;
+		}
+		for (const block of content) {
+			if (block.type === 'tool_use') {
+				const event = ClaudeActionAdapter.toEvent(block.name, block.input, this._chatChannelUri.toString(), block.id);
+				this._logService.info(`[Reeve:Claude] Observed tool_use "${block.name}" (id: ${block.id}) -> ReeveActionEvent(type: ${event.type}, target: ${event.target || event.command || 'none'})`);
+				void this._explanationLayer.onBeforeAction(event).then(res => {
+					if (res?.preExplanation) {
+						this._logService.info(`[Reeve:Claude] Pre-action explanation: "${res.preExplanation}"`);
+						if (turnId) {
+							this._onDidProduceSignal.fire({
+								kind: 'action',
+								resource: this._chatChannelUri,
+								action: {
+									type: ActionType.ChatResponsePart,
+									turnId,
+									part: {
+										kind: ResponsePartKind.Markdown,
+										id: `reeve-explanation-${block.id}`,
+										content: `\n\n> 💡 **Reeve Explanation**: ${res.preExplanation}\n\n`,
+									},
+								},
+							});
+						}
+					}
+				}).catch(err => {
+					this._logService.debug(`[ClaudeSdkMessageRouter] Reeve onBeforeAction error: ${err}`);
+				});
+			}
+		}
+	}
+
+	private _observeReeveUser(message: Extract<SDKMessage, { type: 'user' }>): void {
+		const content = message.message.content;
+		if (!Array.isArray(content)) {
+			return;
+		}
+		for (const block of content) {
+			if (block.type === 'tool_result') {
+				const isError = block.is_error === true;
+				this._logService.info(`[Reeve:Claude] Observed tool_result (id: ${block.tool_use_id}, success: ${!isError}) -> Reeve after-action recorded`);
+				this._explanationLayer.onAfterAction({
+					harness: 'claude',
+					sessionId: this._chatChannelUri.toString(),
+					actionId: block.tool_use_id,
+					type: 'other',
+					result: block.content,
+					success: !isError,
+					timestamp: Date.now(),
+				});
+			}
 		}
 	}
 }

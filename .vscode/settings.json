@@ -8,6 +8,8 @@
 		"scripts/test-integration.sh": true,
 	},
 	"chat.editing.explainChanges.enabled": true,
+	"github.copilot.reeve.enabled": true,
+	"github.copilot.reeve.disableCopilotMemory": true,
 	// --- Editor ---
 	"editor.insertSpaces": false,
 	"editor.experimental.asyncTokenization": true,

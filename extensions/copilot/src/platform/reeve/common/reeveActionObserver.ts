@@ -89,6 +89,8 @@ export interface ObservedAction {
  */
 export interface ActionExplanation {
 	readonly summary: string;
+	readonly actions?: readonly ObservedAction[];
+	readonly episodeText?: string;
 }
 
 /**

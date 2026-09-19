@@ -931,12 +931,25 @@ CRITICAL INSTRUCTION: You MUST use the above Reeve Long-Term Project Memory to a
 	): Promise<ActionExplanation | undefined> {
 		const recalled = this.lastRecalledMemories.get(sessionId) || [];
 		try {
-			return await this.explanationLayer.finalizeSession(
+			const result = await this.explanationLayer.finalizeSession(
 				sessionId,
 				agentResponseText,
 				stream,
 				recalled
 			);
+
+			// Automatically store the complete turn episode (user query + tool outputs + agent response) into Reeve MCP memory
+			if (result?.episodeText && this.isEnabled()) {
+				this.storeMemory({
+					fact: result.episodeText,
+					speaker: 'agent_episode',
+					category: 'history',
+				}).catch(err => {
+					this.logService.debug('[ReeveClient] Failed to store turn episode memory:', err);
+				});
+			}
+
+			return result;
 		} finally {
 			this.lastRecalledMemories.delete(sessionId);
 		}
