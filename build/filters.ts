@@ -73,6 +73,7 @@ export const unicodeFilter = Object.freeze<string[]>([
 	'!src/vs/base/browser/dompurify/**',
 	'!src/vs/workbench/services/keybinding/browser/keyboardLayouts/**',
 	'!src/vs/workbench/contrib/terminal/common/scripts/psreadline/**',
+	'!src/vs/workbench/contrib/architectureDiagram/browser/mermaidBundle.js',
 
 	// Files with licences
 	'!src/vs/platform/endpoint/common/licenseAgreement.ts',
@@ -159,6 +160,7 @@ export const indentationFilter = Object.freeze<string[]>([
 	'!**/*.tiff',
 
 	// except for built files
+	'!src/vs/workbench/contrib/architectureDiagram/browser/mermaidBundle.js',
 	'!extensions/mermaid-markdown-features/chat-webview-out/*.js',
 	'!extensions/mermaid-markdown-features/markdown-preview-out/*.js',
 	'!extensions/mermaid-markdown-features/notebook-out/*.js',
@@ -225,6 +227,7 @@ export const copyrightFilter = Object.freeze<string[]>([
 	// vendored third-party libraries
 	'!src/vs/base/common/lit-html/**',
 	'!src/vs/base/common/signals-core/**',
+	'!src/vs/workbench/contrib/architectureDiagram/browser/mermaidBundle.js',
 
 	// extensions/copilot has its own code style
 	'!extensions/copilot/**',
