@@ -295,6 +295,10 @@ Learn more about [Reeve Devpilot](https://reeve.co.in). Or explore the [Copilot 
 						agentResponseChunks.push((part as any).value);
 					} else if ('value' in part && typeof (part as any).value?.value === 'string') {
 						agentResponseChunks.push((part as any).value.value);
+					} else if ('title' in part && typeof (part as any).title === 'string') {
+						agentResponseChunks.push(`\n[Action: ${(part as any).title}]\n`);
+					} else if ('message' in part && typeof (part as any).message === 'string') {
+						agentResponseChunks.push(`\n[${(part as any).message}]\n`);
 					}
 				});
 
@@ -325,12 +329,9 @@ Learn more about [Reeve Devpilot](https://reeve.co.in). Or explore the [Copilot 
 						this.reeveClient?.renderMemoryCitation?.(stream, reeveNamespace);
 					}
 				} finally {
-					// Reeve Long-Term Memory & Human-Centered Change Explanation
+					// Reeve Long-Term Memory & Human-Centered Change Explanation: Store full episode (prompt + actions + response)
 					const fullAgentResponse = agentResponseChunks.join('').trim();
 					if (this.reeveClient?.isEnabled()) {
-						if (fullAgentResponse) {
-							this.reeveClient.recordAgentResponse?.(fullAgentResponse)?.catch(() => { /* non-blocking fail-safe */ });
-						}
 						await this.reeveClient.finalizeActionObservation?.(sessionId, fullAgentResponse, stream)?.catch(() => { /* non-blocking fail-safe */ });
 					}
 				}

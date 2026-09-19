@@ -4,12 +4,10 @@
  * license information.
  *--------------------------------------------------------------------------------*/
 
-import * as vscode from 'vscode';
-import { ActionContext, ActionEvidence, ActionExplanation, ISessionActionObserver, ObservedAction, ReeveActionEvent } from '../common/reeveActionObserver';
-import { CopilotActionAdapter } from '../common/reeveAdapters';
-import { ReeveMemoryItem } from '../common/reeveClient';
-import { HumanExplanationService, IHumanExplanationModel } from './humanExplanationService';
-import { SessionActionObserver } from './reeveActionObserver';
+import { ActionContext, ActionEvidence, ActionExplanation, ISessionActionObserver, ObservedAction, ReeveActionEvent } from './reeveActionObserver.js';
+import { ReeveMemoryItem } from './reeveClient.js';
+import { HumanExplanationService, IHumanExplanationModel } from './humanExplanationService.js';
+import { SessionActionObserver } from './reeveActionObserver.js';
 
 export interface IExplanationStream {
 	markdown(value: string): void;
@@ -21,20 +19,16 @@ export class HumanCenteredExplanationLayer {
 	private readonly sessionStreams = new Map<string, IExplanationStream>();
 	private readonly sessionMemories = new Map<string, readonly ReeveMemoryItem[]>();
 	private readonly preExplanations = new Map<string, string>();
-	private readonly sessionModels = new Map<string, vscode.LanguageModelChat>();
 
 	constructor(private readonly explanationService: IHumanExplanationModel = new HumanExplanationService()) { }
 
-	startSession(sessionId: string, stream?: IExplanationStream, userRequest = '', model?: vscode.LanguageModelChat): ISessionActionObserver {
+	startSession(sessionId: string, stream?: IExplanationStream, userRequest = ''): ISessionActionObserver {
 		const observer = new SessionActionObserver(sessionId, userRequest);
 		this.activeObservers.set(sessionId, observer);
 		if (stream) {
 			this.sessionStreams.set(sessionId, stream);
 		}
 		this.sessionMemories.set(sessionId, []);
-		if (model) {
-			this.sessionModels.set(sessionId, model);
-		}
 		return observer;
 	}
 
@@ -50,9 +44,9 @@ export class HumanCenteredExplanationLayer {
 		if (!targetSessionId) {
 			return undefined;
 		}
-		const observer = this.activeObservers.get(targetSessionId);
+		let observer = this.activeObservers.get(targetSessionId);
 		if (!observer) {
-			return undefined;
+			observer = this.startSession(targetSessionId) as SessionActionObserver;
 		}
 
 		const { action } = observer.recordBeforeAction(event);
@@ -60,7 +54,7 @@ export class HumanCenteredExplanationLayer {
 		if (!observer.isMeaningfulAction(action)) {
 			return { action };
 		}
-		const explanation = await this.explanationService.explain(this.buildContext(observer, action, recalledMemories, 'before'), this.sessionModels.get(targetSessionId));
+		const explanation = await this.explanationService.explain(this.buildContext(observer, action, recalledMemories, 'before'));
 		if (explanation) {
 			this.preExplanations.set(targetSessionId, explanation);
 		}
@@ -78,82 +72,42 @@ export class HumanCenteredExplanationLayer {
 		}
 	}
 
-	/**
-	 * Backward compatibility adapter for Copilot tools.
-	 */
-	async onBeforeToolAction(toolName: string, input: any, sessionId?: string, recalledMemories: readonly ReeveMemoryItem[] = []): Promise<{ action: ObservedAction; preExplanation?: string } | undefined> {
-		const targetSessionId = sessionId || (this.activeObservers.size === 1 ? this.activeObservers.keys().next().value : 'default_session');
-		const event = CopilotActionAdapter.toEvent(toolName, input, targetSessionId);
-		return this.onBeforeAction(event, recalledMemories);
-	}
-
-	/**
-	 * Backward compatibility adapter for Copilot tools.
-	 */
-	onAfterToolAction(actionId: string, result: any, success: boolean, sessionId?: string): void {
-		const targetSessionId = sessionId || (this.activeObservers.size === 1 ? this.activeObservers.keys().next().value : 'default_session');
-		this.onAfterAction({
-			harness: 'copilot',
-			sessionId: targetSessionId,
-			actionId,
-			type: 'other',
-			result,
-			success,
-		});
-	}
-
-	recordToolAction(toolName: string, input: any, result: any, success: boolean, sessionId?: string): void {
-		const targetSessionId = sessionId || (this.activeObservers.size === 1 ? this.activeObservers.keys().next().value : 'default_session');
-		const event = CopilotActionAdapter.toEvent(toolName, input, targetSessionId);
-		this.activeObservers.get(targetSessionId)?.recordAction({ ...event, result, success });
-	}
-
-	async finalizeSession(sessionId: string, agentResponseText: string, stream?: IExplanationStream, recalledMemories: readonly ReeveMemoryItem[] = []): Promise<ActionExplanation | undefined> {
+	async finalizeSession(sessionId: string, agentResponseText: string = '', stream?: IExplanationStream, recalledMemories: readonly ReeveMemoryItem[] = []): Promise<ActionExplanation | undefined> {
 		const observer = this.activeObservers.get(sessionId);
 		if (!observer) {
 			return undefined;
 		}
-		try {
-			const allActions = observer.getActions();
-			const meaningfulActions = allActions.filter(candidate => observer.isMeaningfulAction(candidate));
-			let explanation: string | undefined;
-
-			if (meaningfulActions.length > 0) {
-				explanation = await this.explanationService.explain(
-					this.buildContext(
-						observer,
-						meaningfulActions[meaningfulActions.length - 1],
-						this.sessionMemories.get(sessionId) || recalledMemories,
-						'after',
-						agentResponseText,
-						this.preExplanations.get(sessionId),
-						meaningfulActions
-					),
-					this.sessionModels.get(sessionId)
-				);
-			}
-
-			const targetStream = stream || this.sessionStreams.get(sessionId);
-			if (explanation && targetStream) {
-				try { targetStream.markdown(`\n\n${explanation}\n\n`); } catch { /* fail-safe */ }
-			}
-
-			const userRequest = observer.getUserRequest();
-			const episodeText = this.formatTurnEpisode(userRequest, allActions, agentResponseText, explanation);
-
-			const result: ActionExplanation = {
-				summary: explanation || '',
-				actions: allActions,
-				episodeText,
-			};
-			return result;
-		} finally {
-			this.activeObservers.delete(sessionId);
-			this.sessionStreams.delete(sessionId);
-			this.sessionMemories.delete(sessionId);
-			this.preExplanations.delete(sessionId);
-			this.sessionModels.delete(sessionId);
+		if (stream) {
+			this.sessionStreams.set(sessionId, stream);
 		}
+		const memories = recalledMemories.length > 0 ? recalledMemories : (this.sessionMemories.get(sessionId) || []);
+		const allActions = observer.getActions();
+		const meaningfulActions = allActions.filter(action => observer.isMeaningfulAction(action));
+		let explanationText: string | undefined;
+
+		if (meaningfulActions.length > 0) {
+			const priorExplanation = this.preExplanations.get(sessionId);
+			const context = this.buildContext(observer, meaningfulActions[meaningfulActions.length - 1], memories, 'after', agentResponseText, priorExplanation, meaningfulActions);
+			explanationText = await this.explanationService.explain(context);
+		}
+
+		if (explanationText) {
+			this.render(explanationText, sessionId);
+		}
+
+		const userRequest = observer.getUserRequest();
+		const episodeText = this.formatTurnEpisode(userRequest, allActions, agentResponseText, explanationText);
+
+		const explanation: ActionExplanation = {
+			summary: explanationText || '',
+			actions: allActions,
+			episodeText,
+		};
+		this.activeObservers.delete(sessionId);
+		this.sessionStreams.delete(sessionId);
+		this.sessionMemories.delete(sessionId);
+		this.preExplanations.delete(sessionId);
+		return explanation;
 	}
 
 	public formatTurnEpisode(
@@ -250,29 +204,49 @@ export class HumanCenteredExplanationLayer {
 		return String(result);
 	}
 
-	private buildContext(observer: SessionActionObserver, action: ObservedAction | undefined, memories: readonly ReeveMemoryItem[], phase: ActionContext['phase'], agentResponse?: string, priorExplanation?: string, actions: readonly ObservedAction[] = [action].filter((candidate): candidate is ObservedAction => !!candidate)): ActionContext {
-		const details = action?.details || {};
-		const memory = memories.map(item => `${item.supersededBy || item.validTo ? 'Historical (superseded): ' : ''}${item.content}`).join('\n');
+	private render(text: string | undefined, sessionId: string): void {
+		if (!text) {
+			return;
+		}
+		const stream = this.sessionStreams.get(sessionId);
+		if (stream) {
+			stream.markdown(`\n\n*${text}*\n\n`);
+		}
+	}
+
+	private buildContext(
+		observer: SessionActionObserver,
+		action: ObservedAction | undefined,
+		memories: readonly ReeveMemoryItem[],
+		phase: ActionContext['phase'],
+		agentResponse?: string,
+		priorExplanation?: string,
+		actions: readonly ObservedAction[] = [action].filter((candidate): candidate is ObservedAction => !!candidate)
+	): ActionContext {
+		const memory = memories
+			.map(item => item.isHistorical ? `Historical (superseded): ${item.content}` : item.content)
+			.join('\n');
+
 		return {
 			phase,
-			type: this.actionType(action),
-			target: action?.targetResource,
-			command: details.command,
-			diff: details.diff,
-			content: details.content,
-			result: details.result,
+			type: (action?.details?.type as any) || 'other',
+			target: action?.targetResource || action?.details?.target,
+			command: action?.details?.command,
+			diff: action?.details?.diff,
+			content: action?.details?.content,
+			result: action?.details?.result,
 			userRequest: observer.getUserRequest(),
 			reeveMemory: memory || undefined,
 			agentResponse,
 			priorExplanation,
-			actions: actions.map(candidate => this.actionEvidence(candidate)),
+			actions: actions.map(this.toEvidence),
 		};
 	}
 
-	private actionEvidence(action: ObservedAction): ActionEvidence {
+	private toEvidence(action: ObservedAction): ActionEvidence {
 		return {
-			type: this.actionType(action),
-			target: action.targetResource,
+			type: (action.details?.type as any) || 'other',
+			target: action.targetResource || action.details?.target,
 			command: action.details?.command,
 			diff: action.details?.diff,
 			content: action.details?.content,
@@ -280,23 +254,4 @@ export class HumanCenteredExplanationLayer {
 			success: action.success,
 		};
 	}
-
-	private actionType(action: ObservedAction | undefined): ActionContext['type'] {
-		switch (action?.category) {
-			case 'file_edit': return 'edit';
-			case 'file_create': return 'create';
-			case 'file_delete': return 'delete';
-			case 'shell_command': return 'command';
-			case 'test_run': return 'test';
-			default: return 'other';
-		}
-	}
-
-	private render(explanation: string | undefined, sessionId: string): void {
-		if (!explanation) {
-			return;
-		}
-		try { this.sessionStreams.get(sessionId)?.markdown(`\n\n${explanation}\n\n`); } catch { /* fail-safe */ }
-	}
-
 }

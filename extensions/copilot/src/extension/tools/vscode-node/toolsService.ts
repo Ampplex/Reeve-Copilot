@@ -68,7 +68,22 @@ export class ToolsService extends BaseToolsService {
 				return owned?.alternativeDefinition?.(tool) ?? tool;
 			});
 
-		const result: vscode.LanguageModelToolInformation[] = contributedTools.map(tool => {
+		let filteredTools = contributedTools;
+		try {
+			const config = vscode.workspace.getConfiguration('github.copilot.reeve');
+			const disableCopilotMemory = config.get<boolean>('disableCopilotMemory', true);
+			const reeveEnabled = config.get<boolean>('enabled', true);
+			if (disableCopilotMemory && reeveEnabled) {
+				filteredTools = contributedTools.filter(tool => {
+					const toolName = getToolName(tool.name);
+					return toolName !== ToolName.Memory && toolName !== ToolName.ResolveMemoryFileUri;
+				});
+			}
+		} catch {
+			// fail-safe
+		}
+
+		const result: vscode.LanguageModelToolInformation[] = filteredTools.map(tool => {
 			return {
 				...tool,
 				name: getToolName(tool.name),

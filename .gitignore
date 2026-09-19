@@ -54,3 +54,8 @@ dist
 .v[0-9]*/
 # Local agent validation evidence
 .agent-validation/
+
+# Environment files and secrets
+.env
+*.env
+extensions/copilot/.env

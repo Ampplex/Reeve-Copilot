@@ -62,6 +62,7 @@ import { ICopilotApiService } from '../shared/copilotApiService.js';
 import { IAgentHostAuthenticationService } from '../agentHostAuthenticationService.js';
 import { IAgentHostGitHubEndpointService } from '../agentHostGitHubEndpointService.js';
 import { AGENT_MERGE_GITHUB_TOOL_RESTRICTION, getAgentMergeGitHubToolRestriction } from '../shared/agentMergeToolRestrictions.js';
+import { ReeveClient } from '../reeve/reeveClient.js';
 
 // Re-export for callers that import IRematerializer from the session.
 export type { IRematerializer } from './claudeSdkPipeline.js';
@@ -280,6 +281,8 @@ export class ClaudeAgentSession extends Disposable {
 	 */
 	private readonly _pendingPermissions = new PendingRequestRegistry<boolean>();
 	private _agentMergeTurn = false;
+	private readonly _reeveClient: ReeveClient;
+	private _currentTurnReeveContext: string | undefined;
 
 	/**
 	 * Phase 7 / S3.2. User-input deferreds parked for interactive tools
@@ -461,6 +464,7 @@ export class ClaudeAgentSession extends Disposable {
 		super();
 		this._chatChannelUri = chatChannelUri;
 		this.project = project;
+		this._reeveClient = new ReeveClient(this._logService);
 		this._register(this._configurationService.onDidRootConfigChange(() => this.markMcpConfigurationDirty()));
 		this._register(this._authenticationService.onDidChangeAuthToken(event => {
 			if (event.resource === this._gitHubEndpointService.getCopilotResource().resource) {
@@ -647,7 +651,7 @@ export class ClaudeAgentSession extends Disposable {
 				agent: agentName,
 				telemetry,
 				traceContext,
-				getUserPromptAdditionalContext: () => this._hostInstructions?.join('\n\n'),
+				getUserPromptAdditionalContext: () => this._buildUserPromptAdditionalContext(),
 				onPreToolUse: (toolName, input) => this._restrictAgentMergeGitHubTool(toolName, input),
 			},
 			ctx.transport,
@@ -762,7 +766,7 @@ export class ClaudeAgentSession extends Disposable {
 						agent: rebuildAgentName,
 						telemetry,
 						traceContext,
-						getUserPromptAdditionalContext: () => this._hostInstructions?.join('\n\n'),
+						getUserPromptAdditionalContext: () => this._buildUserPromptAdditionalContext(),
 						onPreToolUse: (toolName, input) => this._restrictAgentMergeGitHubTool(toolName, input),
 					},
 					rebuildTransport,
@@ -1070,12 +1074,60 @@ export class ClaudeAgentSession extends Disposable {
 		await this._reconcileMcpServerEnablement();
 		this._hostInstructions = hostInstructions;
 		this._agentMergeTurn = agentMergeTurn;
+		if (this._reeveClient.hasApiKey()) {
+			this._currentTurnReeveContext = await this._retrieveReeveContext(prompt);
+		}
 		try {
 			await pipeline.send(prompt, turnId, clientContext);
 		} finally {
 			this._hostInstructions = undefined;
 			this._agentMergeTurn = false;
+			this._currentTurnReeveContext = undefined;
 		}
+	}
+
+	private _buildUserPromptAdditionalContext(): string | undefined {
+		const parts: string[] = [];
+		if (this._hostInstructions && this._hostInstructions.length > 0) {
+			parts.push(this._hostInstructions.join('\n\n'));
+		}
+		if (this._currentTurnReeveContext) {
+			this._logService.info(`[Reeve:Claude] Injected verified project memories into Claude turn additionalContext`);
+			parts.push(this._currentTurnReeveContext);
+		}
+		return parts.length > 0 ? parts.join('\n\n') : undefined;
+	}
+
+	private async _retrieveReeveContext(prompt: SDKUserMessage): Promise<string | undefined> {
+		if (!this._reeveClient.hasApiKey()) {
+			return undefined;
+		}
+		try {
+			let userPromptText = '';
+			const content = prompt.message.content;
+			if (typeof content === 'string') {
+				userPromptText = content;
+			} else if (Array.isArray(content)) {
+				for (const block of content) {
+					if (block.type === 'text') {
+						userPromptText += block.text + ' ';
+					}
+				}
+			}
+			userPromptText = userPromptText.trim();
+			if (!userPromptText) {
+				return undefined;
+			}
+			this._logService.info(`[Reeve:Claude] Searching Reeve memory for turn: "${userPromptText.slice(0, 80)}"`);
+			const result = await this._reeveClient.search(userPromptText, 5);
+			if (result.memories.length > 0) {
+				this._logService.info(`[Reeve:Claude] Retrieved ${result.memories.length} memories from Reeve engine`);
+				return ReeveClient.formatMemoriesForContext(result.memories);
+			}
+		} catch (err) {
+			this._logService.debug(`[Claude] Reeve memory retrieval skipped: ${err}`);
+		}
+		return undefined;
 	}
 
 	private _restrictAgentMergeGitHubTool(toolName: string, input: unknown): SyncHookJSONOutput | undefined {
