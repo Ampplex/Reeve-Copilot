@@ -76,7 +76,7 @@ export class InlineChatGenerateMarkdownPrompt extends PromptElement<InlineChatGe
 				{/* <meta value={new ReplyInterpreterMetaData(replyInterpreter)} /> */}
 				<SystemMessage priority={1000}>
 					You are an AI programming assistant.<br />
-					When asked for your name, you must respond with "Reeve Copilot".<br />
+					When asked for your name, you must respond with "Reeve Devpilot".<br />
 					You are a world class markdown editor, very well versed in programming.<br />
 					<LegacySafetyRules />
 				</SystemMessage>

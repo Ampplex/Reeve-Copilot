@@ -643,3 +643,491 @@
 .monaco-workbench.floating-panels.nopanel .monaco-sash.horizontal.maximum:not(.part .monaco-sash)::before {
 	top: calc(50% - (var(--vscode-sash-hover-size) / 2) - (var(--vscode-sash-size) / 2));
 }
+
+/* =============================================================================
+ * Glassmorphism + open/close motion (project addition, not part of the
+ * upstream Modern UI experiment). Purely additive on top of the floating card
+ * rules above: only appearance/timing, never sizing or grid participation.
+ * ========================================================================== */
+
+/*
+ * The translucent tint below is a plain rgba() of this theme's own surface
+ * colors (surface.background / sideBar.background / panel.background are all
+ * #211A13; editor.background is #18130E — see 2026-dark.json), not a
+ * color-mix() of the live theme variable. color-mix() was tried first but its
+ * output was silently dropped at runtime (computed background-color came back
+ * fully opaque while the sibling backdrop-filter declaration in the same rule
+ * applied fine), so this only supports our one default theme rather than
+ * reacting to arbitrary theme changes. Update these if the theme's surface
+ * colors change.
+ *
+ * Selectors include `.modern-ui` (redundant with `.floating-panels`, which
+ * implies it) purely to win a specificity tie: verified via live inspection
+ * that `modernUI/browser/media/paneHeaders.css` has its own
+ * `!important background-color` rule on these same elements
+ * (`.modern-ui.floating-panels :is(.part.sidebar, .part.auxiliarybar)`) at
+ * the exact same specificity, which was winning the cascade purely because it
+ * happens to load later — the opaque background this file kept measuring was
+ * that rule, not a color-mix()/rgba() parsing failure a second time.
+ *
+ * Blur is intentionally light (6px, not a heavy 20-30px) and the tint is
+ * intentionally low-alpha (0.3): at 28px/0.4 (the first values tried here)
+ * small monospace editor text behind the panel smeared into an indistinguishable
+ * dark mass — verified via live screenshot that code was fully unreadable
+ * through it, effectively opaque despite being technically translucent. The
+ * explicit ask is real see-through glass ("make sure everything is visible"),
+ * which for fine text needs a much lighter touch than the heavier blur typical
+ * glassmorphism references use over large, blurry wallpaper backgrounds.
+ */
+.monaco-workbench.floating-panels.modern-ui .part.sidebar {
+	backdrop-filter: blur(6px) saturate(1.2);
+	-webkit-backdrop-filter: blur(6px) saturate(1.2);
+	background-color: rgba(33, 26, 19, 0.3) !important;
+	border-top-color: rgba(255, 255, 255, 0.18) !important;
+}
+
+.monaco-workbench.floating-panels.modern-ui .part.auxiliarybar {
+	backdrop-filter: blur(6px) saturate(1.2);
+	-webkit-backdrop-filter: blur(6px) saturate(1.2);
+	/* This file pins the auxiliary bar's opaque background to sideBar.background
+	 * (not surface.background) to match the primary side bar in light theme, so the
+	 * glass tint follows the same source color here. */
+	background-color: rgba(33, 26, 19, 0.3) !important;
+	border-top-color: rgba(255, 255, 255, 0.18) !important;
+}
+
+.monaco-workbench.floating-panels.modern-ui .part.panel {
+	backdrop-filter: blur(6px) saturate(1.2);
+	-webkit-backdrop-filter: blur(6px) saturate(1.2);
+	background-color: rgba(33, 26, 19, 0.3) !important;
+	border-top-color: rgba(255, 255, 255, 0.18) !important;
+}
+
+.monaco-workbench.floating-panels.modern-ui .settings-editor {
+	backdrop-filter: blur(6px) saturate(1.2);
+	-webkit-backdrop-filter: blur(6px) saturate(1.2);
+	background-color: rgba(24, 19, 14, 0.32) !important;
+}
+
+/*
+ * macOS-style pop-in for the Settings editor, matching the sidebar/
+ * auxiliarybar/panel open animation above. Unlike those, Settings is a
+ * regular editor input rather than a part whose visibility toggles a class
+ * on `.monaco-workbench` — there's no persistent element to transition
+ * between two states, only a fresh `.settings-editor` node whenever it
+ * becomes the active editor. A CSS `animation` (rather than a transition)
+ * plays on its own once on mount, which is exactly what a freshly-created
+ * element needs and needs no JS to trigger. It has no matching close
+ * animation: closing this editor removes its element immediately, and
+ * animating that exit would need JS to delay the actual removal until the
+ * animation finishes, which nothing here currently does.
+ */
+@keyframes reeve-settings-pop-in {
+	from {
+		opacity: 0;
+		transform: scale(0.9);
+	}
+	to {
+		opacity: 1;
+		transform: scale(1);
+	}
+}
+
+.monaco-workbench.floating-panels.modern-ui .settings-editor {
+	transform-origin: center center;
+	animation: reeve-settings-pop-in 240ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/*
+ * The glass tint above is on `.part.sidebar` etc. itself, but several inner
+ * elements (the view title bar, each collapsible pane's header row) paint
+ * their own fully-opaque background in the same solid theme color — normally
+ * invisible since it exactly matches the (pre-glass) part background, but
+ * once the part turns translucent these inner layers still sit on top of it
+ * fully opaque, masking the blur wherever they cover. Verified via live
+ * inspection (getComputedStyle on `.composite.title` / `.pane-header`
+ * returned the same solid `rgb(33,26,19)` the part used before this file's
+ * override). Forcing them transparent lets the one translucent layer on
+ * `.part` itself show through everywhere, not just in the gaps between them.
+ */
+.monaco-workbench.floating-panels.modern-ui .part.sidebar .composite.title,
+.monaco-workbench.floating-panels.modern-ui .part.sidebar .pane,
+.monaco-workbench.floating-panels.modern-ui .part.auxiliarybar .composite.title,
+.monaco-workbench.floating-panels.modern-ui .part.auxiliarybar .pane,
+.monaco-workbench.floating-panels.modern-ui .part.panel .composite.title,
+.monaco-workbench.floating-panels.modern-ui .part.sidebar .monaco-list-rows,
+.monaco-workbench.floating-panels.modern-ui .part.auxiliarybar .monaco-list-rows,
+.monaco-workbench.floating-panels.modern-ui .part.panel .monaco-list-rows,
+.monaco-workbench.floating-panels.modern-ui .part.sidebar .monaco-tree-sticky-container,
+.monaco-workbench.floating-panels.modern-ui .part.auxiliarybar .monaco-tree-sticky-container {
+	background-color: transparent !important;
+}
+
+/*
+ * `.pane-header` needs one extra qualifier (`.monaco-pane-view`, genuinely
+ * part of its real ancestor chain) to outrank
+ * `modernUI/browser/media/paneHeaders.css`'s own
+ * `.modern-ui :is(.part.sidebar, .part.auxiliarybar) .monaco-pane-view .pane
+ * > .pane-header { background-color: ... !important }` rule, which sits at
+ * the exact same specificity (six class selectors either way) and — being in
+ * a different file — otherwise wins the tie purely by loading later, the
+ * same class of bug already hit once for `.part.sidebar` itself above.
+ */
+.monaco-workbench.floating-panels.modern-ui .part.sidebar .monaco-pane-view .pane-header,
+.monaco-workbench.floating-panels.modern-ui .part.auxiliarybar .monaco-pane-view .pane-header {
+	background-color: transparent !important;
+}
+
+/* Compact density joins cards edge-to-edge with no gutter to blur into; keep those flat. */
+.monaco-workbench.floating-panels.modern-ui-compact .part.sidebar,
+.monaco-workbench.floating-panels.modern-ui-compact .part.auxiliarybar,
+.monaco-workbench.floating-panels.modern-ui-compact .part.panel {
+	backdrop-filter: none;
+	-webkit-backdrop-filter: none;
+	background-color: var(--vscode-surface-background) !important;
+}
+
+/*
+ * macOS-style pop: opening overshoots slightly past its resting scale before
+ * settling (the spring/bounce every native window-open and sheet-appear
+ * animation on macOS uses), closing is a quick, straight shrink with no
+ * bounce back out. CSS transitions pick their duration/easing from the
+ * element's *target* state, not the state being left, so declaring
+ * different `transition` values on the visible rule here vs. the hidden
+ * `.nosidebar` etc. rule below is enough to make opening and closing feel
+ * different without any JS: toggling the ancestor class off (open) resolves
+ * to this rule's bouncy 260ms; toggling it on (close) resolves to the
+ * hidden rule's snappy 150ms.
+ */
+.monaco-workbench.floating-panels .part.sidebar,
+.monaco-workbench.floating-panels .part.auxiliarybar,
+.monaco-workbench.floating-panels .part.panel {
+	transition: opacity 260ms cubic-bezier(0.34, 1.56, 0.64, 1), transform 260ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.monaco-workbench.floating-panels .part.sidebar.left {
+	transform-origin: left center;
+}
+
+.monaco-workbench.floating-panels .part.sidebar.right,
+.monaco-workbench.floating-panels .part.auxiliarybar {
+	transform-origin: right center;
+}
+
+.monaco-workbench.floating-panels .part.panel {
+	transform-origin: center bottom;
+}
+
+/*
+ * !important here specifically because the drag grip (floatingPanelDrag
+ * contribution) sets an inline `transform: translate(...)` on this same
+ * element while dragging. An inline style always beats an external rule for
+ * the same property unless that rule uses !important, so without it a
+ * previously-dragged panel could never play this close animation at all —
+ * the inline drag offset would silently block the scale-down every time.
+ * This does mean closing a dragged panel resets its position; reopening it
+ * starts back at the anchored spot rather than resuming the dragged one.
+ */
+.monaco-workbench.floating-panels.nosidebar .part.sidebar {
+	transition: opacity 150ms cubic-bezier(0.4, 0, 1, 1), transform 150ms cubic-bezier(0.4, 0, 1, 1);
+	opacity: 0 !important;
+	transform: scale(0.85) !important;
+}
+
+.monaco-workbench.floating-panels.noauxiliarybar .part.auxiliarybar {
+	transition: opacity 150ms cubic-bezier(0.4, 0, 1, 1), transform 150ms cubic-bezier(0.4, 0, 1, 1);
+	opacity: 0 !important;
+	transform: scale(0.85) !important;
+}
+
+.monaco-workbench.floating-panels.nopanel .part.panel {
+	transition: opacity 150ms cubic-bezier(0.4, 0, 1, 1), transform 150ms cubic-bezier(0.4, 0, 1, 1);
+	opacity: 0 !important;
+	transform: scale(0.85) !important;
+}
+
+/* Respect reduced-motion preferences and this workbench's own motion setting. */
+.monaco-workbench.monaco-reduce-motion.floating-panels .part.sidebar,
+.monaco-workbench.monaco-reduce-motion.floating-panels .part.auxiliarybar,
+.monaco-workbench.monaco-reduce-motion.floating-panels .part.panel {
+	transition: none;
+}
+
+/*
+ * The opening half has no existing rule to lean on: nothing else pins
+ * opacity/transform for the *visible*, non-`.nosidebar` state, since resting
+ * at opacity 1 / no transform is just the element's normal, undeclared
+ * default. `transition: none` here is deliberate — this class is only ever
+ * applied for a single frame purely to force that default to actually
+ * *paint* once before being removed (see the forced reflow in
+ * `setupPopAnimation`); it must snap instantly, not transition into being
+ * the "from" state.
+ */
+.floating-panel-opening {
+	transition: none !important;
+	opacity: 0 !important;
+	transform: scale(0.85) !important;
+}
+
+/* =============================================================================
+ * True overlay (project addition). The editor part is positioned by the same
+ * absolute left/top/width/height inline styles every grid part uses (see
+ * `splitview.ts` LeafNode#layoutContainer) — the grid computes and applies
+ * these sizes exactly as it always has, for every other purpose (resize drag,
+ * persistence, focus). This section only overrides the *editor's* rendered
+ * box so it always fills its full row instead of yielding space to
+ * sidebar/auxiliarybar/panel, which then render on top of it (z-index) rather
+ * than beside it. Sidebar/auxiliarybar/panel keep their normal grid-computed
+ * position/size — resize, visibility toggling, and persisted width/height are
+ * completely unaffected; only what the editor visually renders underneath
+ * them changes. This is what gives the glass surfaces above real editor
+ * content to blur instead of the flat shell color.
+ * ========================================================================== */
+
+/*
+ * Verified via live CDP inspection (not assumed): `.part.editor` itself
+ * computes `position: static` — it is NOT the grid-managed, absolutely
+ * positioned element. The Grid actually sizes a generic wrapper it inserts
+ * around every part, `.split-view-view` (shared by sidebar/editor/panel/
+ * auxiliarybar alike, with no part-specific class), via inline `left`/`width`
+ * (or `top`/`height` in a vertical split). `.part.editor` is just a normal
+ * static block filling whatever that wrapper gives it. Overriding
+ * `.part.editor` directly — the first version of this rule — was therefore a
+ * no-op for position/size: `left` is ignored on `position: static` elements
+ * entirely, and `width` was inherited straight from the still-constrained
+ * real wrapper. `:has()` lets us target that specific wrapper without a
+ * part-specific class to hook into.
+ */
+.monaco-workbench.floating-panels .split-view-view:has(.part.editor) {
+	left: 0 !important;
+	width: 100% !important;
+}
+
+.monaco-workbench.floating-panels > .monaco-grid-view .part.editor {
+	/* The base Modern UI rules above give every part, editor included, a card
+	 * margin/border-radius/shadow. The editor is the fixed backbone here, not
+	 * a floating card, so cancel those out. Unlike left/width above, margin
+	 * and border-radius DO apply to a `position: static` element, which is
+	 * why this half of the original fix actually worked while the left/width
+	 * half silently didn't. */
+	margin: 0 !important;
+	border-radius: 0 !important;
+	box-shadow: none !important;
+}
+
+.monaco-workbench.floating-panels .part.editor > .content {
+	border-radius: 0 !important;
+}
+
+/*
+ * z-index requires a non-static `position` to have ANY effect at all (a
+ * `position: static` element with `z-index: 50` is identical to `z-index:
+ * auto` per spec — completely inert). `.part.sidebar` etc. compute `position:
+ * static` (verified via live CDP inspection), so a z-index rule targeting
+ * them directly — the first version of this rule — silently did nothing,
+ * which is why Explorer/Chat could render behind the editor despite this
+ * rule "being applied". The real positioned element is the generic
+ * `.split-view-view` wrapper the Grid inserts around every part (see the
+ * `:has()` rule for `.part.editor` above) — it's already `position:
+ * absolute`, so z-index on it actually takes effect.
+ */
+.monaco-workbench.floating-panels .split-view-view:has(.part.sidebar),
+.monaco-workbench.floating-panels .split-view-view:has(.part.auxiliarybar),
+.monaco-workbench.floating-panels .split-view-view:has(.part.panel) {
+	z-index: 50 !important;
+}
+
+.monaco-workbench.floating-panels .split-view-view:has(.part.editor) {
+	z-index: 1 !important;
+}
+
+/*
+ * The activity bar shares editor's row (same horizontal split) and, now that
+ * editor spans the full row width, visually overlaps it at the activity
+ * bar's own position. An element with NO explicit z-index (`auto`) always
+ * loses to one that has any explicit value, however low — so editor's
+ * z-index: 1 above was enough to render on top of the activity bar's
+ * default `auto`, hiding it entirely. Verified via live inspection
+ * (elementFromPoint at the activity bar's own coordinates was returning the
+ * editor). Giving the activity bar its own explicit, higher z-index fixes
+ * it; it doesn't need to be as high as sidebar/auxiliarybar/panel's 50 since
+ * it isn't meant to float above them, just above the editor it happens to
+ * share a row with.
+ */
+.monaco-workbench.floating-panels .split-view-view:has(.part.activitybar) {
+	z-index: 2 !important;
+}
+
+/*
+ * Genuinely-detached treatment (project addition). The upstream Modern UI
+ * design above intentionally fuses the sidebar to the activity bar rail (flush
+ * edge, square corners, 4px gaps elsewhere) so it reads as one connected
+ * surface. That's too subtle to look like a truly separate floating window,
+ * so this overrides it: a real gap on every side (including the edge that
+ * used to be flush with the activity bar), all four corners rounded, and a
+ * visible drop shadow. Scoped to :not(.modern-ui-compact), matching how the
+ * base file already keeps compact density's intentionally-flush look
+ * separate from the default density's.
+ */
+.monaco-workbench.floating-panels:not(.modern-ui-compact) {
+	--modern-ui-floating-card-margin: 12px;
+	--modern-ui-floating-card-outer-margin: 12px;
+	--modern-ui-floating-card-inner-margin: 12px;
+}
+
+/* Keep the activity bar's own margins at the original, small values — it
+ * reads these same variables but should stay visually unchanged (docked,
+ * flush to the window edge), only the sidebar/auxiliarybar/panel are meant
+ * to read as detached here. */
+.monaco-workbench.floating-panels:not(.modern-ui-compact) .part.activitybar {
+	--modern-ui-floating-card-margin: var(--vscode-spacing-size40);
+	--modern-ui-floating-card-outer-margin: var(--vscode-spacing-size40);
+	--modern-ui-floating-card-inner-margin: var(--vscode-spacing-sizeNone);
+}
+
+/*
+ * Drag grip for the floating sidebar/auxiliarybar cards (project addition;
+ * see floatingPanelDrag.contribution.ts, which appends this element). Placed
+ * in the card's own top-right corner rather than inside the view title bar,
+ * so it can never overlap or intercept VS Code's own title-bar interactions
+ * (view switch tabs, collapse toggle, title-bar drag-to-reorder).
+ */
+.floating-panel-drag-grip {
+	position: absolute;
+	/* Top-left, not top-right — the existing title bar's close/collapse
+	 * actions live in the top-right corner; this avoids sitting on top of
+	 * them. */
+	top: 4px;
+	left: 4px;
+	z-index: 100;
+	width: 20px;
+	height: 20px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 14px;
+	border-radius: var(--vscode-cornerRadius-small, 4px);
+	color: var(--vscode-icon-foreground);
+	background-color: rgba(255, 255, 255, 0.08);
+	cursor: grab;
+}
+
+.floating-panel-drag-grip:hover {
+	background-color: rgba(255, 255, 255, 0.16);
+}
+
+.floating-panel-drag-grip:active {
+	cursor: grabbing;
+}
+
+/*
+ * Edge/corner resize zones (project addition; see
+ * floatingPanelDrag.contribution.ts, which appends these 8 elements to the
+ * part's `.split-view-view` wrapper and sets the wrapper's width/height/
+ * position directly on drag). This replaces an earlier single visible
+ * bottom-right icon button: real desktop windows are resized by dragging any
+ * edge or corner, with no visible affordance at all — just a cursor change
+ * near the border — so these are invisible hit zones, not buttons.
+ *
+ * Appended to the wrapper rather than `.part.sidebar`/`.part.auxiliarybar`
+ * itself: those have `overflow: hidden` (they clip their own tree/chat
+ * content), which was silently swallowing pointer events for part of each
+ * handle's area when it lived there instead — verified live via
+ * `elementFromPoint` that a click a few pixels into a handle's own measured
+ * rect landed on the pane view underneath rather than the handle. The
+ * wrapper has no such clipping and is already the thing whose size these
+ * handles change, so hit-testing is unambiguous across each handle's full
+ * area. It also already sits at the highest z-index among floating panels,
+ * so no extra z-index juggling is needed here.
+ */
+.floating-panel-resize-handle {
+	position: absolute;
+	z-index: 60;
+}
+
+.floating-panel-resize-handle.n,
+.floating-panel-resize-handle.s {
+	left: 16px;
+	right: 16px;
+	height: 8px;
+	cursor: ns-resize;
+}
+
+.floating-panel-resize-handle.n { top: -4px; }
+.floating-panel-resize-handle.s { bottom: -4px; }
+
+.floating-panel-resize-handle.e,
+.floating-panel-resize-handle.w {
+	top: 16px;
+	bottom: 16px;
+	width: 8px;
+	cursor: ew-resize;
+}
+
+.floating-panel-resize-handle.e { right: -4px; }
+.floating-panel-resize-handle.w { left: -4px; }
+
+.floating-panel-resize-handle.ne,
+.floating-panel-resize-handle.nw,
+.floating-panel-resize-handle.se,
+.floating-panel-resize-handle.sw {
+	width: 16px;
+	height: 16px;
+}
+
+.floating-panel-resize-handle.ne { top: -4px; right: -4px; cursor: nesw-resize; }
+.floating-panel-resize-handle.nw { top: -4px; left: -4px; cursor: nwse-resize; }
+.floating-panel-resize-handle.se { bottom: -4px; right: -4px; cursor: nwse-resize; }
+.floating-panel-resize-handle.sw { bottom: -4px; left: -4px; cursor: nesw-resize; }
+
+.monaco-workbench.floating-panels:not(.modern-ui-compact):not(.noactivitybar) .part.sidebar.left {
+	border-top-left-radius: var(--vscode-cornerRadius-large);
+	border-bottom-left-radius: var(--vscode-cornerRadius-large);
+}
+
+.monaco-workbench.floating-panels:not(.modern-ui-compact):not(.noactivitybar) .part.sidebar.right {
+	border-top-right-radius: var(--vscode-cornerRadius-large);
+	border-bottom-right-radius: var(--vscode-cornerRadius-large);
+}
+
+.monaco-workbench.floating-panels:not(.modern-ui-compact) .part.sidebar,
+.monaco-workbench.floating-panels:not(.modern-ui-compact) .part.auxiliarybar,
+.monaco-workbench.floating-panels:not(.modern-ui-compact) .part.panel {
+	box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+/*
+ * Sidebar launchers pane (project addition, unrelated to the floating-panels
+ * feature above — kept in this file only because it's a CSS module that's
+ * already known to load reliably in this build; a brand-new `import
+ * './some.css'` in a fresh contribution file previously crashed the whole
+ * workbench with "Expected a JavaScript-or-Wasm module script" even though
+ * the equivalent import in this already-registered file works fine, so new
+ * CSS content goes here rather than risking that again). Not gated behind
+ * `.floating-panels` since the launcher row should render regardless of
+ * whether Modern UI is on.
+ */
+.sidebar-launchers-row {
+	display: flex;
+	flex-direction: row;
+	gap: 8px;
+	padding: 8px;
+}
+
+.sidebar-launcher-button {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex: 1;
+	height: 32px;
+	font-size: 16px;
+	border-radius: var(--vscode-cornerRadius-small, 4px);
+	border: 1px solid var(--vscode-widget-border, transparent);
+	background-color: var(--vscode-button-secondaryBackground, transparent);
+	color: var(--vscode-icon-foreground);
+	cursor: pointer;
+}
+
+.sidebar-launcher-button:hover {
+	background-color: var(--vscode-toolbar-hoverBackground);
+}

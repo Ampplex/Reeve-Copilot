@@ -440,6 +440,12 @@ import './contrib/codeActions/browser/codeActions.contribution.js';
 import './contrib/timeline/browser/timeline.contribution.js';
 import './contrib/timeline/browser/timeline.service.contribution.js';
 
+// Sidebar floating-window launchers (Timeline / Architecture Diagram)
+import './contrib/sidebarLaunchers/browser/sidebarLaunchers.contribution.js';
+
+// Drag grip for the floating sidebar/auxiliary-bar cards
+import './contrib/floatingPanelDrag/browser/floatingPanelDrag.contribution.js';
+
 // Local History
 import './contrib/localHistory/browser/localHistory.contribution.js';
 

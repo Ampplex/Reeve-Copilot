@@ -179,7 +179,7 @@ class ChatAgents implements IDisposable {
 
 You can also ask me questions about your editor selection by [starting an inline chat session](command:inlineChat.start).
 
-Learn more about [Reeve Copilot](https://reeve.co.in). Or explore the [Copilot walkthrough](command:github.copilot.open.walkthrough).`,
+Learn more about [Reeve Devpilot](https://reeve.co.in). Or explore the [Copilot walkthrough](command:github.copilot.open.walkthrough).`,
 			comment: `{Locked='](command:inlineChat.start)'}`
 		});
 		const markdownString = new vscode.MarkdownString(helpPostfix);

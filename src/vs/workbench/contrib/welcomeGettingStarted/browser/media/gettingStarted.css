@@ -32,7 +32,7 @@
 }
 
 .monaco-workbench .part.editor > .content .gettingStartedContainer {
-	font-size: 13px;
+	font-size: 14px;
 }
 
 .monaco-workbench .part.editor > .content .gettingStartedContainer .gettingStarted {
@@ -44,7 +44,8 @@
 	margin: 0;
 	border: none;
 	font-weight: normal;
-	font-size: 2.7em;
+	font-size: 3.6em;
+	line-height: 1.2;
 	white-space: nowrap;
 }
 
@@ -950,7 +951,7 @@
 
 .monaco-workbench .part.editor > .content .gettingStartedContainer .gettingStartedSlideCategories > .gettingStartedCategoriesContainer .index-list.start-container {
 	min-height: 156px;
-	margin-bottom: 16px;
+	margin-bottom: 40px;
 }
 
 .monaco-workbench .part.editor > .content .gettingStartedContainer .gettingStartedSlideCategories > .gettingStartedCategoriesContainer > .footer > button {
@@ -1089,6 +1090,14 @@
 
 .monaco-workbench .part.editor > .content .gettingStartedContainer .start-container .button-link {
 	line-height: 24px;
+}
+
+.monaco-workbench .part.editor > .content .gettingStartedContainer .start-container li {
+	margin-bottom: 8px;
+}
+
+.monaco-workbench .part.editor > .content .gettingStartedContainer .start-container li:last-child {
+	margin-bottom: 0;
 }
 
 .monaco-workbench .part.editor > .content .gettingStartedContainer a:not(.hide-category-button):hover {

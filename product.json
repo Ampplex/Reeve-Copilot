@@ -1,8 +1,8 @@
 {
-	"nameShort": "Reeve Copilot",
-	"nameLong": "Reeve Copilot",
-	"applicationName": "reeve-copilot",
-	"dataFolderName": ".reeve-copilot",
+	"nameShort": "Reeve Devpilot",
+	"nameLong": "Reeve Devpilot",
+	"applicationName": "reeve-devpilot",
+	"dataFolderName": ".reeve-devpilot",
 	"sharedDataFolderName": ".vscode-oss-shared",
 	"win32MutexName": "vscodeoss",
 	"licenseName": "MIT",
