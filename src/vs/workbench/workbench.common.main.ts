@@ -446,6 +446,12 @@ import './contrib/sidebarLaunchers/browser/sidebarLaunchers.contribution.js';
 // Drag grip for the floating sidebar/auxiliary-bar cards
 import './contrib/floatingPanelDrag/browser/floatingPanelDrag.contribution.js';
 
+// Architecture Diagram floating window
+import './contrib/architectureDiagram/browser/architectureDiagram.contribution.js';
+
+// Version Timeline floating window
+import './contrib/versionTimeline/browser/versionTimeline.contribution.js';
+
 // Local History
 import './contrib/localHistory/browser/localHistory.contribution.js';
 

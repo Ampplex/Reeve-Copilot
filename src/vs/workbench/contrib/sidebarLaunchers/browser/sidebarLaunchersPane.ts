@@ -14,18 +14,17 @@ import { IConfigurationService } from '../../../../platform/configuration/common
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { IThemeService } from '../../../../platform/theme/common/themeService.js';
 import { IHoverService } from '../../../../platform/hover/browser/hover.js';
-import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { ViewPane, IViewPaneOptions } from '../../../browser/parts/views/viewPane.js';
 import { IViewDescriptorService } from '../../../common/views.js';
+import { IArchitectureDiagramService } from '../../architectureDiagram/browser/architectureDiagramService.js';
+import { IVersionTimelineService } from '../../versionTimeline/browser/versionTimelineService.js';
 
 /**
  * Small header pane holding the Timeline and Architecture Diagram launcher
- * buttons (side by side, above the Outline view). Each button is meant to
- * open its feature in a floating window — the actual target UI for each is
- * still being designed, so pressing a button currently only shows a
- * placeholder notification. Neither button touches the existing Timeline
- * view or command registrations, which remain fully intact and unrelated to
- * this pane.
+ * buttons (side by side, above the Outline view). Each button opens its
+ * feature in its own floating window. Neither touches the existing core
+ * Timeline view or command registrations, which remain fully intact and
+ * unrelated to this pane.
  */
 export class SidebarLaunchersPane extends ViewPane {
 	static readonly TITLE: ILocalizedString = localize2('sidebarLaunchers', "Quick Views");
@@ -41,7 +40,8 @@ export class SidebarLaunchersPane extends ViewPane {
 		@IOpenerService openerService: IOpenerService,
 		@IThemeService themeService: IThemeService,
 		@IHoverService hoverService: IHoverService,
-		@INotificationService private readonly notificationService: INotificationService,
+		@IArchitectureDiagramService private readonly architectureDiagramService: IArchitectureDiagramService,
+		@IVersionTimelineService private readonly versionTimelineService: IVersionTimelineService,
 	) {
 		super(options, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, hoverService);
 
@@ -60,11 +60,11 @@ export class SidebarLaunchersPane extends ViewPane {
 		const row = append(container, $('.sidebar-launchers-row'));
 
 		this.createLauncherButton(row, 'history', localize('timelineLauncher', "Timeline"), () => {
-			this.notificationService.info(localize('timelineLauncherComingSoon', "Timeline floating view is coming soon."));
+			this.versionTimelineService.open();
 		});
 
 		this.createLauncherButton(row, 'type-hierarchy', localize('architectureDiagramLauncher', "Architecture Diagram"), () => {
-			this.notificationService.info(localize('architectureDiagramLauncherComingSoon', "Architecture Diagram floating view is coming soon."));
+			this.architectureDiagramService.open();
 		});
 	}
 

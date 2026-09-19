@@ -926,7 +926,12 @@ export class GettingStartedPage extends EditorPane {
 		}));
 
 		const header = $('.header', {},
-			$('h1.product-name.caption', {}, this.productService.nameLong),
+			// A trailing " Dev" is appended app-wide while running from
+			// source (`VSCODE_DEV`) to distinguish a dev build from a packaged
+			// one — useful in a window title, but not on the Welcome page's
+			// product name, which should always read the same as the shipped
+			// app.
+			$('h1.product-name.caption', {}, this.productService.nameLong.replace(/\s+Dev$/, '')),
 			$('p.subtitle.description', {}, localize({ key: 'gettingStarted.editingEvolved', comment: ['Shown as subtitle on the Welcome page.'] }, "Editing evolved"))
 		);
 
