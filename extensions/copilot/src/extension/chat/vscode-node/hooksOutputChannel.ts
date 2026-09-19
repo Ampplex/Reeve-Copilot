@@ -13,7 +13,7 @@ export class HooksOutputChannel implements IHooksOutputChannel {
 
 	appendLine(message: string): void {
 		if (!this._channel) {
-			this._channel = window.createOutputChannel('Reeve Copilot Chat Hooks', { log: true });
+			this._channel = window.createOutputChannel('Reeve Devpilot Chat Hooks', { log: true });
 		}
 		this._channel.info(message);
 	}

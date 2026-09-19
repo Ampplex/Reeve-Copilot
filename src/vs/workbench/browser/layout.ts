@@ -6,7 +6,7 @@
 import { Disposable, DisposableMap, DisposableStore, IDisposable, toDisposable } from '../../base/common/lifecycle.js';
 import { Event, Emitter } from '../../base/common/event.js';
 import { alert } from '../../base/browser/ui/aria/aria.js';
-import { EventType, addDisposableListener, getClientArea, size, IDimension, isAncestorUsingFlowTo, computeScreenAwareSize, getActiveDocument, getWindows, getActiveWindow, isActiveDocument, getWindow, getWindowId, getActiveElement, Dimension } from '../../base/browser/dom.js';
+import { EventType, addDisposableListener, getClientArea, size, IDimension, isAncestorUsingFlowTo, computeScreenAwareSize, getActiveDocument, getWindows, getActiveWindow, isActiveDocument, getWindow, getWindowId, getActiveElement, Dimension, modify } from '../../base/browser/dom.js';
 import { onDidChangeFullscreen, isFullscreen, isWCOEnabled } from '../../base/browser/browser.js';
 import { isWindows, isLinux, isMacintosh, isWeb, isIOS } from '../../base/common/platform.js';
 import { EditorInputCapabilities, GroupIdentifier, isResourceEditorInput, IUntypedEditorInput, pathsToEditors } from '../common/editor.js';
@@ -1684,6 +1684,21 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 		this.workbenchGrid = workbenchGrid;
 		this.workbenchGrid.edgeSnapping = this.state.runtime.mainWindowFullscreen;
 
+		// Project addition: when floating panels are on, the editor's CSS box
+		// (floatingPanels.css) is forced to fill its entire row regardless of
+		// how much width the grid actually allocated it — sidebar/auxiliarybar
+		// float on top instead of sharing space with it. But the grid's own
+		// .layout() calls (triggered by resize, visibility toggling, or
+		// resize-drag — anything that fires onDidChange here) still pass the
+		// editor its grid-computed, sidebar-reduced width, so the editor's
+		// actual content (tabs, Monaco) never reflows to match the larger CSS
+		// box. Re-measure the editor's real rendered size after every grid
+		// change and re-run its layout with that, so its content genuinely
+		// uses the space the CSS gives it. No-ops entirely when floating
+		// panels are off.
+		this._register(this.workbenchGrid.onDidChange(() => this.scheduleCorrectEditorLayoutForFloatingPanels()));
+		this.correctEditorLayoutForFloatingPanels();
+
 		for (const part of [titleBar, editorPart, activityBar, panelPart, sideBar, statusBar, auxiliaryBarPart, bannerPart]) {
 			this._register(part.onDidVisibilityChange(visible => {
 				if (!this.inMaximizedAuxiliaryBarTransition) {
@@ -1717,6 +1732,23 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 				this.updateTopWindowEdgeClass();
 			}
 		}));
+
+		// Toggling the sidebar/auxiliary bar/panel visible or hidden changes
+		// how much width the grid's own (non-floating) sizing model wants to
+		// give the editor — verified live that this grid-computed width still
+		// gets applied on show/hide even though it is immediately followed by
+		// `correctEditorLayoutForFloatingPanels()` via `onDidChange` above for
+		// most toggles. But for at least one direction of at least one toggle
+		// (reproduced live: reopening a closed sidebar), no matching grid
+		// `onDidChange` firing was observed afterward, leaving the grid's
+		// narrower, sidebar-sharing width as the final applied one instead of
+		// this file's full-bleed override — the exact "editor stays
+		// shrunk after re-opening a panel" bug reported live. Reacting to
+		// part visibility directly, in addition to `onDidChange`, closes that
+		// gap: redundant on the toggles where `onDidChange` already covers
+		// it (this function is idempotent), and the only correction on the
+		// one(s) where it doesn't.
+		this._register(this.onDidChangePartVisibility(() => this.scheduleCorrectEditorLayoutForFloatingPanels()));
 
 		this._register(this.storageService.onWillSaveState(() => {
 
@@ -1765,10 +1797,123 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 			// Layout the grid widget
 			this.workbenchGrid.layout(this._mainContainerDimension.width, this._mainContainerDimension.height);
 			this.initialized = true;
+			this.correctEditorLayoutForFloatingPanels();
 
 			// Emit as event
 			this.handleContainerDidLayout(this.mainContainer, this._mainContainerDimension);
 		}
+	}
+
+	/**
+	 * See the comment where `onDidChange` is subscribed, above, for why this
+	 * exists. Safe to call redundantly/idempotently — it just re-measures and
+	 * re-applies the same values if nothing actually changed. No-ops entirely
+	 * unless floating panels are enabled.
+	 */
+	private correctEditorLayoutForFloatingPanels(): void {
+		if (!this.isFloatingPanelsEnabled()) {
+			return;
+		}
+
+		const editorContainer = this.getContainer(mainWindow, Parts.EDITOR_PART);
+		if (!editorContainer) {
+			return;
+		}
+
+		this.reserveActivityBarSpaceForEditor(editorContainer);
+
+		const editorDimension = getClientArea(editorContainer);
+		if (editorDimension.width <= 0 || editorDimension.height <= 0) {
+			return;
+		}
+
+		// EditorPart.layout() takes (width, height, top, left) — top/left are 0
+		// here to match this file's own CSS override (`.part.editor { left: 0;
+		// top: 0; ... }`). Note EditorPart.layout() itself still subtracts its
+		// own floating-panels margin/border reservation from whatever width is
+		// passed in (see editorPart.ts), which this file's `margin: 0` override
+		// on .part.editor doesn't know about — so content ends up a small,
+		// fixed number of pixels narrower than the true full-bleed box. That's
+		// a minor, acceptable gap, not the "still centered" bug this fixes.
+		this.getPart(Parts.EDITOR_PART).layout(editorDimension.width, editorDimension.height, 0, 0);
+	}
+
+	/**
+	 * Unlike the sidebar/auxiliary bar/panel, the activity bar was never
+	 * meant to float — it's meant to stay docked exactly like the title and
+	 * status bars, per the original ask. But `floatingPanels.css`'s
+	 * `.split-view-view:has(.part.editor) { left: 0; width: 100% }` rule
+	 * makes the editor's box span the *entire* row unconditionally, which
+	 * includes the activity bar's own reserved column, not just the sidebar/
+	 * auxiliarybar/panel columns it's meant to spread under. A z-index alone
+	 * (this file has one, so the activity bar still paints on top) only
+	 * fixes which one is visible where they overlap; the editor's real
+	 * content — line numbers, code — still extends underneath the activity
+	 * bar's own column and can show through it, reported live as "code
+	 * overlapped by the activity bar." This narrows the editor's box back
+	 * down so it starts right where the activity bar's column actually ends,
+	 * on whichever side it's docked, and spans full width only when the
+	 * activity bar is hidden. Applied as inline styles with explicit
+	 * `important` priority (inline `!important` beats an external
+	 * stylesheet's `!important` for the same property at equal origin, since
+	 * inline specificity is highest within that tier) so this measured,
+	 * always-correct value overrides that CSS rule's own `!important`
+	 * instead of losing to it.
+	 */
+	private reserveActivityBarSpaceForEditor(editorContainer: HTMLElement): void {
+		const editorWrapper = editorContainer.parentElement;
+		if (!editorWrapper) {
+			return;
+		}
+
+		const activityBarContainer = this.getContainer(mainWindow, Parts.ACTIVITYBAR_PART);
+		const activityBarWrapper = activityBarContainer?.parentElement;
+		if (!activityBarContainer || !activityBarWrapper || !this.isVisible(Parts.ACTIVITYBAR_PART)) {
+			editorWrapper.style.removeProperty('left');
+			editorWrapper.style.removeProperty('width');
+			return;
+		}
+
+		const activityBarRect = activityBarWrapper.getBoundingClientRect();
+		if (activityBarContainer.classList.contains('right')) {
+			const reserved = Math.max(0, mainWindow.innerWidth - activityBarRect.left);
+			editorWrapper.style.setProperty('left', '0', 'important');
+			editorWrapper.style.setProperty('width', `calc(100% - ${reserved}px)`, 'important');
+		} else {
+			const reserved = Math.max(0, activityBarRect.right);
+			editorWrapper.style.setProperty('left', `${reserved}px`, 'important');
+			editorWrapper.style.setProperty('width', `calc(100% - ${reserved}px)`, 'important');
+		}
+	}
+
+	/**
+	 * Defers `correctEditorLayoutForFloatingPanels` to the next animation
+	 * frame, at the lowest scheduling priority (`dom.modify`'s "must be
+	 * late"), instead of calling it synchronously from within a grid/
+	 * visibility change event. Verified live (via temporary logging) that on
+	 * at least one toggle direction, the grid's own internal re-layout of the
+	 * sidebar was still running *after* this file's synchronous correction
+	 * during the same event — silently overwriting the corrected full-bleed
+	 * width with the grid's normal, sidebar-sharing one again, which is what
+	 * produced the reported "editor stays shrunk after re-opening a panel"
+	 * bug: it wasn't that the correction never ran, it ran and then lost a
+	 * same-tick race. Running last, next frame, means nothing scheduled by
+	 * this same grid change can still be pending after it.
+	 */
+	private scheduleCorrectEditorLayoutForFloatingPanels(): void {
+		modify(mainWindow, () => this.correctEditorLayoutForFloatingPanels());
+	}
+
+	layoutPart(part: Parts, width: number, height: number): void {
+		if (!this.isFloatingPanelsEnabled()) {
+			return;
+		}
+
+		if (width <= 0 || height <= 0) {
+			return;
+		}
+
+		this.getPart(part).layout(width, height, 0, 0);
 	}
 
 	isMainEditorLayoutCentered(): boolean {

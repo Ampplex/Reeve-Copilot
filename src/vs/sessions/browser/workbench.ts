@@ -1965,6 +1965,13 @@ export class Workbench extends Disposable implements IAgentWorkbenchLayoutServic
 		return false; // the agents window has its own floating card design
 	}
 
+	layoutPart(_part: Parts, _width: number, _height: number): void {
+		// No-op: this only exists to let a floating panel's own content
+		// reflow after being resized outside the grid (see
+		// floatingPanelDrag.contribution.ts), which never happens here
+		// since isFloatingPanelsEnabled() is always false for this shell.
+	}
+
 	isModernUICompact(): boolean {
 		return false;
 	}

@@ -8,7 +8,7 @@ import { ILogTarget } from '../common/logService';
 
 export let outputChannel: OutputChannel;
 
-export const OutputChannelName = 'Reeve Copilot Chat';
+export const OutputChannelName = 'Reeve Devpilot Chat';
 
 export class NewOutputChannelLogTarget implements ILogTarget {
 

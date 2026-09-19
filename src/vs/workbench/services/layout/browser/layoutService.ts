@@ -574,6 +574,19 @@ export interface IWorkbenchLayoutService extends ILayoutService {
 	getContainer(targetWindow: Window, part: Parts): HTMLElement | undefined;
 
 	/**
+	 * Re-runs layout for a single part's own content (its title bar, tree/
+	 * list, composite, etc.) with the given content dimensions, without going
+	 * through the grid. A part's content is sized by explicit JS-computed
+	 * pixel dimensions from its own `layout()` call, not by CSS percentages,
+	 * so simply resizing a part's DOM container (e.g. a floating panel's
+	 * wrapper, resized directly by drag/resize handles independent of the
+	 * grid) does not make its content reflow on its own — this makes it do
+	 * so. No-ops when floating panels are disabled, since that is the only
+	 * case a part is ever resized outside the grid's own sizing.
+	 */
+	layoutPart(part: Parts, width: number, height: number): void;
+
+	/**
 	 * Returns if the part is visible in the target window.
 	 */
 	isVisible(part: SINGLE_WINDOW_PARTS): boolean;

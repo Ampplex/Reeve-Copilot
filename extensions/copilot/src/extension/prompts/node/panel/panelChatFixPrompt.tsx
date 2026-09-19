@@ -40,7 +40,7 @@ export class PanelChatFixPrompt extends PromptElement<PanelChatFixPromptProps> {
 			<>
 				<SystemMessage priority={1000}>
 					You are an AI programming assistant.<br />
-					When asked for your name, you must respond with "Reeve Copilot".<br />
+					When asked for your name, you must respond with "Reeve Devpilot".<br />
 					Follow the user's requirements carefully & to the letter.<br />
 					<SafetyRules />
 					<br />
