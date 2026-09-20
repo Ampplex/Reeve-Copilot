@@ -409,4 +409,5 @@ function formatSqlResult(rows: Record<string, unknown>[], truncated: boolean, so
 	return result;
 }
 
-ToolRegistry.registerTool(SessionStoreSqlTool);
+// Session store tool removed - Reeve temporal memory is used exclusively for project memory.
+// ToolRegistry.registerTool(SessionStoreSqlTool);

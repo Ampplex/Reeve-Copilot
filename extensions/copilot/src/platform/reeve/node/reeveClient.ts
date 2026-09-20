@@ -475,7 +475,37 @@ export class ReeveClient implements IReeveClient {
 		} catch {
 			// ignore
 		}
-		return process.env['REEVE_API_KEY'] || process.env['REEVE_AUTH_TOKEN'];
+		return process.env['REEVE_API_KEY'] || process.env['REEVE_AUTH_TOKEN'] || this.tryReadApiKeyFromEnvFile();
+	}
+
+	private tryReadApiKeyFromEnvFile(): string | undefined {
+		try {
+			const candidatePaths: string[] = [
+				path.join(process.cwd(), '.env'),
+				path.join(process.cwd(), 'extensions', 'copilot', '.env'),
+			];
+			if (vscode.workspace.workspaceFolders) {
+				for (const wf of vscode.workspace.workspaceFolders) {
+					candidatePaths.push(path.join(wf.uri.fsPath, '.env'));
+					candidatePaths.push(path.join(wf.uri.fsPath, 'extensions', 'copilot', '.env'));
+				}
+			}
+			for (const p of candidatePaths) {
+				if (fs.existsSync(p)) {
+					const content = fs.readFileSync(p, 'utf8');
+					const match = content.match(/^REEVE_API_KEY=(.+)$/m) || content.match(/^REEVE_AUTH_TOKEN=(.+)$/m);
+					if (match && match[1]) {
+						const key = match[1].trim();
+						if (key) {
+							return key;
+						}
+					}
+				}
+			}
+		} catch {
+			// ignore
+		}
+		return undefined;
 	}
 
 	private getTimeoutMs(): number {

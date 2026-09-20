@@ -73,12 +73,17 @@ export class ToolsService extends BaseToolsService {
 			const config = vscode.workspace.getConfiguration('github.copilot.reeve');
 			const disableCopilotMemory = config.get<boolean>('disableCopilotMemory', true);
 			const reeveEnabled = config.get<boolean>('enabled', true);
-			if (disableCopilotMemory && reeveEnabled) {
-				filteredTools = contributedTools.filter(tool => {
-					const toolName = getToolName(tool.name);
+			filteredTools = contributedTools.filter(tool => {
+				const toolName = getToolName(tool.name);
+				// Completely remove session store as tool — Reeve is the exclusive memory provider
+				if (toolName === ToolName.SessionStoreSql || tool.name === 'copilot_sessionStoreSql' || tool.name === 'session_store_sql') {
+					return false;
+				}
+				if (disableCopilotMemory && reeveEnabled) {
 					return toolName !== ToolName.Memory && toolName !== ToolName.ResolveMemoryFileUri;
-				});
-			}
+				}
+				return true;
+			});
 		} catch {
 			// fail-safe
 		}

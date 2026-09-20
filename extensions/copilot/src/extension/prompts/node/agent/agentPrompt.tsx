@@ -116,6 +116,7 @@ export class AgentPrompt extends PromptElement<AgentPromptProps> {
 
 		const omitBaseAgentInstructions = this.configurationService.getConfig(ConfigKey.Advanced.OmitBaseAgentInstructions);
 		const hasMemoryTool = !!this.props.promptContext.tools?.availableTools?.find(tool => tool.name === ToolName.Memory);
+		const hasReeveMemoryTool = !!this.props.promptContext.tools?.availableTools?.find(tool => tool.name === ToolName.ReeveSearchMemory);
 		const baseAgentInstructions = <>
 			<SystemMessage>
 				You are an expert AI programming assistant, working with a user in the VS Code editor.<br />
@@ -125,6 +126,13 @@ export class AgentPrompt extends PromptElement<AgentPromptProps> {
 			{instructions}
 			{hasMemoryTool && <SystemMessage>
 				<MemoryInstructionsPrompt />
+			</SystemMessage>}
+			{hasReeveMemoryTool && <SystemMessage>
+				<Tag name="reeveMemoryInstructions">
+					You have access to persistent project memory via the {ToolName.ReeveSearchMemory} tool.<br />
+					Always use {ToolName.ReeveSearchMemory} when you need to recall previous discussions, architectural patterns, technical decisions, past coding sessions, or project conventions.<br />
+					Do not assume you have no memory of past work—query {ToolName.ReeveSearchMemory} to retrieve historical context.
+				</Tag>
 			</SystemMessage>}
 		</>;
 		const isAutopilot = this.props.promptContext.request?.permissionLevel === 'autopilot';

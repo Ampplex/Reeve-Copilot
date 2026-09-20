@@ -1,0 +1,879 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reeve Devpilot — AI coding without context rot</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+html{scroll-behavior:smooth;scroll-padding-top:92px;background:#0E0C0B}
+body{margin:0;background:#0E0C0B;color:#EFE9E3;font-family:'IBM Plex Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+*{box-sizing:border-box}
+a{color:#E4692A;text-decoration:none}
+a:hover{color:#F5813F}
+::selection{background:rgba(217,84,17,.3)}
+@media (prefers-reduced-motion: no-preference){
+[data-reveal].rv-pre{opacity:0;transform:translateY(16px)}
+[data-reveal].rv-in{opacity:1;transform:none;transition:opacity .7s cubic-bezier(.2,.7,.2,1),transform .7s cubic-bezier(.2,.7,.2,1)}
+}
+@media (max-width:1010px){[data-desk]{display:none!important}[data-mob]{display:flex!important}}
+@media (min-width:1011px){[data-mobpanel]{display:none!important}}
+nav[data-desk] a{white-space:nowrap}
+@keyframes blink{0%,49%{opacity:1}50%,100%{opacity:0}}
+@keyframes pulse{0%,100%{opacity:.35}50%{opacity:1}}
+</style>
+</helmet>
+
+<div style="width:100%;max-width:100%;overflow-x:hidden;background:#0E0C0B">
+
+<header style="position:fixed;top:0;left:0;right:0;z-index:60;background:{{ navBg }};backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid {{ navBorder }};transition:background .25s ease,border-color .25s ease,padding .25s ease;padding:{{ navPad }} 0">
+  <div style="max-width:1240px;margin:0 auto;padding:0 clamp(18px,4vw,40px);display:flex;align-items:center;gap:28px">
+    <a href="#top" style="display:flex;align-items:center;gap:11px;color:#EFE9E3;flex:0 0 auto">
+      <svg width="20" height="26" viewBox="0 0 40 52" fill="none" aria-hidden="true">
+        <path d="M9 10V32H31V16" stroke="#D9500F" stroke-width="4"/>
+        <path d="M20 16V44" stroke="#D9500F" stroke-width="4"/>
+        <circle cx="9" cy="8" r="6" fill="#D9500F"/>
+        <circle cx="31" cy="13" r="6" fill="#D9500F"/>
+        <circle cx="20" cy="14" r="6" fill="#D9500F"/>
+        <circle cx="20" cy="45" r="6" fill="#D9500F"/>
+      </svg>
+      <span style="font-size:15px;font-weight:600;letter-spacing:-.01em">Reeve Devpilot</span>
+    </a>
+    <nav data-desk style="display:flex;align-items:center;gap:4px;margin-left:8px">
+      <a href="#product" style="font-size:13.5px;color:#A0958C;padding:7px 11px;border-radius:6px" style-hover="color:#EFE9E3;background:rgba(255,255,255,.05)">Product</a>
+      <a href="#memory" style="font-size:13.5px;color:#A0958C;padding:7px 11px;border-radius:6px" style-hover="color:#EFE9E3;background:rgba(255,255,255,.05)">Memory</a>
+      <a href="#explain" style="font-size:13.5px;color:#A0958C;padding:7px 11px;border-radius:6px" style-hover="color:#EFE9E3;background:rgba(255,255,255,.05)">Explain</a>
+      <a href="#architecture" style="font-size:13.5px;color:#A0958C;padding:7px 11px;border-radius:6px" style-hover="color:#EFE9E3;background:rgba(255,255,255,.05)">Architecture</a>
+      <a href="#timeline" style="font-size:13.5px;color:#A0958C;padding:7px 11px;border-radius:6px" style-hover="color:#EFE9E3;background:rgba(255,255,255,.05)">Timeline</a>
+      <a href="#how" style="font-size:13.5px;color:#A0958C;padding:7px 11px;border-radius:6px" style-hover="color:#EFE9E3;background:rgba(255,255,255,.05)">How it works</a>
+    </nav>
+    <div style="flex:1 1 auto"></div>
+    <div data-desk style="display:flex;align-items:center;gap:10px">
+      <a href="https://github.com/Ampplex/Reeve-Copilot" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:7px;font-size:13.5px;color:#A0958C;padding:7px 10px;border-radius:6px" style-hover="color:#EFE9E3;background:rgba(255,255,255,.05)">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.4 7.4 0 0 1 2-.27c.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
+        GitHub
+      </a>
+      <a href="https://reeve-devpilot-downloads-309490998255.s3.us-west-2.amazonaws.com/Reeve-Devpilot-Setup.exe" download style="display:flex;align-items:center;gap:7px;font-size:13.5px;font-weight:600;color:#12100E;background:#E4692A;padding:8px 15px;border-radius:7px;border:1px solid #F0854B;transition:background .2s ease" style-hover="background:#F0854B;color:#12100E">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M0 2.222L6.5 1.333V7.5H0V2.222zm7.5-1.472L16 0v7.5H7.5V.75zM0 8.5h6.5v6.167L0 13.778V8.5zm7.5 0H16V16l-8.5-.75V8.5z"/></svg>
+        Download (.exe)
+      </a>
+    </div>
+    <button data-mob onClick="{{ toggleMenu }}" aria-label="Menu" style="display:none;align-items:center;justify-content:center;width:38px;height:38px;background:transparent;border:1px solid #2A231E;border-radius:8px;color:#EFE9E3;cursor:pointer;margin-left:auto">
+      <span style="display:block;width:16px;height:10px;border-top:1.5px solid currentColor;border-bottom:1.5px solid currentColor"></span>
+    </button>
+  </div>
+  <div data-mobpanel style="display:{{ menuDisplay }};flex-direction:column;gap:2px;padding:14px clamp(18px,4vw,40px) 20px;border-top:1px solid #221C18;margin-top:12px;background:#100D0B">
+    <a href="#product" onClick="{{ closeMenu }}" style="font-size:16px;color:#EFE9E3;padding:11px 0;border-bottom:1px solid #1C1714">Product</a>
+    <a href="#memory" onClick="{{ closeMenu }}" style="font-size:16px;color:#EFE9E3;padding:11px 0;border-bottom:1px solid #1C1714">Memory</a>
+    <a href="#explain" onClick="{{ closeMenu }}" style="font-size:16px;color:#EFE9E3;padding:11px 0;border-bottom:1px solid #1C1714">Explain</a>
+    <a href="#architecture" onClick="{{ closeMenu }}" style="font-size:16px;color:#EFE9E3;padding:11px 0;border-bottom:1px solid #1C1714">Architecture</a>
+    <a href="#timeline" onClick="{{ closeMenu }}" style="font-size:16px;color:#EFE9E3;padding:11px 0;border-bottom:1px solid #1C1714">Timeline</a>
+    <a href="#how" onClick="{{ closeMenu }}" style="font-size:16px;color:#EFE9E3;padding:11px 0;border-bottom:1px solid #1C1714">How it works</a>
+    <a href="https://github.com/Ampplex/Reeve-Copilot" target="_blank" rel="noopener" onClick="{{ closeMenu }}" style="font-size:16px;color:#EFE9E3;padding:11px 0;border-bottom:1px solid #1C1714">GitHub</a>
+    <a href="https://reeve-devpilot-downloads-309490998255.s3.us-west-2.amazonaws.com/Reeve-Devpilot-Setup.exe" download onClick="{{ closeMenu }}" style="margin-top:14px;display:flex;align-items:center;justify-content:center;gap:8px;text-align:center;font-size:15px;font-weight:600;color:#12100E;background:#E4692A;padding:12px 16px;border-radius:8px">
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M0 2.222L6.5 1.333V7.5H0V2.222zm7.5-1.472L16 0v7.5H7.5V.75zM0 8.5h6.5v6.167L0 13.778V8.5zm7.5 0H16V16l-8.5-.75V8.5z"/></svg>
+      Download for Windows (.exe)
+    </a>
+  </div>
+</header>
+
+<main id="top" style="padding-top:78px">
+
+<!-- HERO -->
+<section style="position:relative;max-width:1240px;margin:0 auto;padding:clamp(48px,7vw,96px) clamp(18px,4vw,40px) clamp(40px,6vw,72px)">
+  <div style="display:grid;grid-template-columns:minmax(0,1fr);gap:clamp(36px,5vw,56px)">
+    <div style="max-width:720px">
+      <p data-reveal style="margin:0;font-family:'IBM Plex Mono',monospace;font-size:11.5px;letter-spacing:.16em;color:#B4805F">THE MEMORY + TRUST LAYER FOR AI CODING</p>
+      <h1 data-reveal style="margin:26px 0 0;font-size:clamp(38px,6.2vw,72px);line-height:1.02;letter-spacing:-.035em;font-weight:600;text-wrap:balance">AI Coding Without<br>Context Rot.</h1>
+      <p data-reveal style="margin:24px 0 0;font-size:clamp(16px,1.5vw,19px);line-height:1.6;color:#A0958C;max-width:620px;text-wrap:pretty">Reeve gives coding agents persistent project memory, explains what they do using real evidence, and helps developers understand the systems they build.</p>
+      <div data-reveal style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-top:32px">
+        <a href="https://reeve-devpilot-downloads-309490998255.s3.us-west-2.amazonaws.com/Reeve-Devpilot-Setup.exe" download style="display:inline-flex;align-items:center;gap:10px;font-size:15px;font-weight:600;color:#12100E;background:#E4692A;padding:14px 24px;border-radius:9px;border:1px solid #F0854B;box-shadow:0 4px 20px rgba(228,105,42,.32);transition:background .15s ease,transform .15s ease" style-hover="background:#F0854B;transform:translateY(-1px)">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M0 2.222L6.5 1.333V7.5H0V2.222zm7.5-1.472L16 0v7.5H7.5V.75zM0 8.5h6.5v6.167L0 13.778V8.5zm7.5 0H16V16l-8.5-.75V8.5z"/></svg>
+          <span>Download for Windows <span style="font-size:12.5px;opacity:.88;font-weight:500">(.exe)</span></span>
+        </a>
+        <a href="#product" style="display:inline-flex;align-items:center;gap:8px;font-size:15px;font-weight:500;color:#EFE9E3;background:#171310;padding:14px 20px;border-radius:9px;border:1px solid #2F2721" style-hover="border-color:#4A3D34;background:#1C1714">Explore Reeve
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:13px">↓</span>
+        </a>
+        <a href="https://github.com/Ampplex/Reeve-Copilot" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:8px;font-size:15px;font-weight:500;color:#A0958C;background:transparent;padding:14px 18px;border-radius:9px;border:1px solid #241E1A" style-hover="color:#EFE9E3;border-color:#3A3029;background:#14100E">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.4 7.4 0 0 1 2-.27c.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
+          GitHub
+        </a>
+      </div>
+      <p data-reveal style="margin:20px 0 0;font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.04em;color:#8A7F76">Windows 10 / 11 (64-bit) • 290 MB • Built with VS Code, MCP & Copilot</p>
+    </div>
+
+    <div data-reveal style="position:relative">
+      <div style="position:relative;border:1px solid #2A231E;border-radius:13px;overflow:hidden;background:#131010;box-shadow:0 40px 80px -40px rgba(0,0,0,.9)">
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:#100D0C;border-bottom:1px solid #221C18">
+          <div style="display:flex;gap:6px"><span style="width:10px;height:10px;border-radius:50%;background:#332A24;display:block"></span><span style="width:10px;height:10px;border-radius:50%;background:#332A24;display:block"></span><span style="width:10px;height:10px;border-radius:50%;background:#332A24;display:block"></span></div>
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#8A7F76;margin-left:6px">reeve-devpilot — payments-api</span>
+        </div>
+        <div style="display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr)">
+          <div style="border-right:1px solid #221C18;min-width:0">
+            <div style="display:flex;align-items:center;gap:0;border-bottom:1px solid #221C18;background:#110E0D">
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#EFE9E3;padding:9px 14px;border-right:1px solid #221C18;border-top:1px solid #D9500F;background:#151110">service.ts</span>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#857B73;padding:9px 14px;border-right:1px solid #221C18">ledger.ts</span>
+            </div>
+            <pre style="margin:0;padding:16px 14px 20px;font-family:'IBM Plex Mono',monospace;font-size:11.5px;line-height:1.85;color:#BDB3AA;overflow-x:auto"><span style="color:#7A7068">14</span>  <span style="color:#A67BC4">export async function</span> <span style="color:#E4B363">capture</span>(<span style="color:#BDB3AA">req</span>: <span style="color:#7FA88F">CaptureRequest</span>) {
+<span style="color:#7A7068">15</span>    <span style="color:#A67BC4">const</span> key = req.idempotencyKey<span style="color:#857B73">;</span>
+<span style="color:#7A7068">16</span>    <span style="color:#A67BC4">const</span> seen = <span style="color:#A67BC4">await</span> <span style="color:#E4B363">ledger</span>.<span style="color:#E4B363">find</span>(key)<span style="color:#857B73">;</span>
+<span style="color:#7A7068">17</span>    <span style="color:#A67BC4">if</span> (seen) <span style="color:#A67BC4">return</span> seen.result<span style="color:#857B73">;</span>
+<span style="color:#7A7068">18</span>
+<span style="color:#7A7068">19</span>    <span style="color:#A67BC4">const</span> result = <span style="color:#A67BC4">await</span> <span style="color:#E4B363">psql</span>.<span style="color:#E4B363">tx</span>(<span style="color:#A67BC4">async</span> t =&gt; {
+<span style="color:#7A7068">20</span>      <span style="color:#A67BC4">await</span> t.<span style="color:#E4B363">insert</span>(<span style="color:#9E8F66">'captures'</span>, { key })<span style="color:#857B73">;</span>
+<span style="color:#7A7068">21</span>      <span style="color:#A67BC4">return</span> <span style="color:#E4B363">charge</span>(req)<span style="color:#857B73">;</span>
+<span style="color:#7A7068">22</span>    })<span style="color:#857B73">;</span><span style="display:inline-block;width:7px;height:14px;background:#D9500F;vertical-align:-2px;margin-left:3px;animation:blink 1.1s step-end infinite"></span>
+<span style="color:#7A7068">23</span>  }</pre>
+          </div>
+          <div style="min-width:0;background:#120F0E;display:flex;flex-direction:column">
+            <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid #221C18">
+              <svg width="12" height="15" viewBox="0 0 40 52" fill="none" aria-hidden="true"><path d="M9 10V32H31V16" stroke="#D9500F" stroke-width="4"/><path d="M20 16V44" stroke="#D9500F" stroke-width="4"/><circle cx="9" cy="8" r="6" fill="#D9500F"/><circle cx="31" cy="13" r="6" fill="#D9500F"/><circle cx="20" cy="14" r="6" fill="#D9500F"/><circle cx="20" cy="45" r="6" fill="#D9500F"/></svg>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.1em;color:#8A7F76">REEVE</span>
+              <span style="margin-left:auto;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#857B73">agent session</span>
+            </div>
+            <div style="padding:14px;display:flex;flex-direction:column;gap:10px;min-height:246px">{{ heroFeed }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PROBLEM -->
+<section id="product" style="border-top:1px solid #1B1613;background:#100D0C">
+ <div style="max-width:1240px;margin:0 auto;padding:clamp(64px,8vw,112px) clamp(18px,4vw,40px)">
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:clamp(28px,4vw,64px);align-items:start">
+    <div>
+      <p data-reveal style="margin:0;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.14em;color:#8A7F76">01 / THE PROBLEM</p>
+      <h2 data-reveal style="margin:18px 0 0;font-size:clamp(28px,3.6vw,44px);line-height:1.12;letter-spacing:-.03em;font-weight:600;text-wrap:balance">Your AI remembers the conversation. Not the project.</h2>
+      <p data-reveal style="margin:20px 0 0;font-size:16px;line-height:1.65;color:#A0958C;max-width:520px">A long project produces hundreds of decisions. Some hold, some get reversed, most end up buried in a chat log nobody reads again. The agent sees whatever fits in the window today.</p>
+      <p data-reveal style="margin:16px 0 0;font-size:16px;line-height:1.65;color:#A0958C;max-width:520px">Project knowledge changes. Context windows do not give those decisions a history.</p>
+    </div>
+    <div data-reveal style="border-left:1px solid #241E1A;padding-left:clamp(20px,3vw,34px)">{{ problemTimeline }}</div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:1px;background:#241E1A;border:1px solid #241E1A;border-radius:12px;overflow:hidden;margin-top:clamp(44px,6vw,80px)">
+    <div data-reveal style="background:#131010;padding:26px 24px 30px">
+      <p style="margin:0;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.12em;color:#D9500F">CONTEXT ROT</p>
+      <p style="margin:14px 0 0;font-size:15.5px;line-height:1.6;color:#A0958C">Important project decisions disappear into old conversations. The constraint you agreed on in March does not travel to the prompt you write in September.</p>
+    </div>
+    <div data-reveal style="background:#131010;padding:26px 24px 30px">
+      <p style="margin:0;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.12em;color:#D9500F">BLACK BOX ACTIONS</p>
+      <p style="margin:14px 0 0;font-size:15.5px;line-height:1.6;color:#A0958C">The agent edits files and runs commands. Working out why it did that means reading the diff yourself, every time.</p>
+    </div>
+    <div data-reveal style="background:#131010;padding:26px 24px 30px">
+      <p style="margin:0;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.12em;color:#D9500F">LOST SYSTEM UNDERSTANDING</p>
+      <p style="margin:14px 0 0;font-size:15.5px;line-height:1.6;color:#A0958C">Architecture and history live in people's heads. New contributors, and agents, rebuild that picture by hand.</p>
+    </div>
+  </div>
+ </div>
+</section>
+
+<!-- THREE IDEAS -->
+<section style="border-top:1px solid #1B1613">
+ <div style="max-width:1240px;margin:0 auto;padding:clamp(64px,8vw,104px) clamp(18px,4vw,40px) clamp(20px,3vw,32px)">
+  <p data-reveal style="margin:0;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.14em;color:#8A7F76">02 / WHAT REEVE DOES</p>
+  <h2 data-reveal style="margin:18px 0 0;font-size:clamp(30px,4.2vw,52px);line-height:1.08;letter-spacing:-.035em;font-weight:600">Remember. Explain. Understand.</h2>
+  <p data-reveal style="margin:20px 0 0;font-size:16px;line-height:1.65;color:#A0958C;max-width:620px">Three things, built on top of the coding agent you already use. Memory for the project, evidence for every action, and a live view of the system underneath.</p>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:clamp(20px,3vw,40px);margin-top:clamp(36px,5vw,56px)">
+    <a data-reveal href="#memory" style="display:block;border-top:2px solid #D9500F;padding-top:18px;color:inherit" style-hover="opacity:.85">
+      <p style="margin:0;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.12em;color:#8A7F76">MEMORY</p>
+      <p style="margin:12px 0 0;font-size:20px;line-height:1.35;letter-spacing:-.02em;color:#EFE9E3">Remember what your project has learned.</p>
+      <p style="margin:12px 0 0;font-size:14.5px;line-height:1.6;color:#8A7F76">Decisions, constraints and conventions stored over MCP, with a clear line between current and superseded.</p>
+    </a>
+    <a data-reveal href="#explain" style="display:block;border-top:2px solid #6B4430;padding-top:18px;color:inherit" style-hover="opacity:.85">
+      <p style="margin:0;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.12em;color:#8A7F76">EXPLAIN</p>
+      <p style="margin:12px 0 0;font-size:20px;line-height:1.35;letter-spacing:-.02em;color:#EFE9E3">Show developers what the agent is actually doing.</p>
+      <p style="margin:12px 0 0;font-size:14.5px;line-height:1.6;color:#8A7F76">Edits, creates, deletes, shell commands and test runs, explained from the real diff and the real output.</p>
+    </a>
+    <a data-reveal href="#architecture" style="display:block;border-top:2px solid #3A3029;padding-top:18px;color:inherit" style-hover="opacity:.85">
+      <p style="margin:0;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.12em;color:#8A7F76">UNDERSTAND</p>
+      <p style="margin:12px 0 0;font-size:20px;line-height:1.35;letter-spacing:-.02em;color:#EFE9E3">See the system your agent is working inside.</p>
+      <p style="margin:12px 0 0;font-size:14.5px;line-height:1.6;color:#8A7F76">Architecture generated from the repository, plus a Git history you can read and jump through.</p>
+    </a>
+  </div>
+ </div>
+</section>
+
+<!-- MEMORY -->
+<section id="memory" style="border-top:1px solid #1B1613;background:#100D0C;margin-top:clamp(40px,6vw,72px)">
+ <div style="max-width:1240px;margin:0 auto;padding:clamp(64px,8vw,112px) clamp(18px,4vw,40px)">
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:clamp(24px,4vw,56px);align-items:end">
+    <div>
+      <p data-reveal style="margin:0;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.14em;color:#D9500F">MEMORY</p>
+      <h2 data-reveal style="margin:18px 0 0;font-size:clamp(28px,3.6vw,44px);line-height:1.12;letter-spacing:-.03em;font-weight:600;text-wrap:balance">Projects evolve. Your AI should remember that.</h2>
+    </div>
+    <p data-reveal style="margin:0;font-size:16px;line-height:1.65;color:#A0958C;max-width:480px">Reeve does not dump the entire history into every prompt. It retrieves what matters for the task in front of the agent.</p>
+  </div>
+
+  <div data-reveal style="margin-top:clamp(36px,5vw,56px);display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:1px;background:#241E1A;border:1px solid #241E1A;border-radius:12px;overflow:hidden">
+    <div style="background:#131010;padding:clamp(20px,3vw,30px)">
+      <p style="margin:0 0 18px;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.12em;color:#8A7F76">PROJECT KNOWLEDGE / payments-api</p>
+      {{ memoryTrack }}
+    </div>
+    <div style="background:#0F0C0B;padding:clamp(20px,3vw,30px);display:flex;flex-direction:column">
+      <p style="margin:0 0 18px;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.12em;color:#8A7F76">RELEVANT MEMORY → AGENT</p>
+      {{ memoryPanel }}
+    </div>
+  </div>
+ </div>
+</section>
+
+<!-- EXPLAIN -->
+<section id="explain" style="border-top:1px solid #1B1613">
+ <div style="max-width:1240px;margin:0 auto;padding:clamp(64px,8vw,112px) clamp(18px,4vw,40px)">
+  <p data-reveal style="margin:0;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.14em;color:#D9500F">EXPLAIN</p>
+  <h2 data-reveal style="margin:18px 0 0;font-size:clamp(28px,3.8vw,46px);line-height:1.1;letter-spacing:-.03em;font-weight:600;max-width:760px;text-wrap:balance">Don't just watch the AI code. Understand it.</h2>
+  <p data-reveal style="margin:20px 0 0;font-size:16px;line-height:1.65;color:#A0958C;max-width:620px">Reeve watches meaningful actions only. Edits, creates, deletes, shell commands and test runs. Reads and searches stay silent.</p>
+
+  <div data-reveal style="margin-top:clamp(32px,4vw,48px);display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:clamp(20px,3vw,32px);align-items:start">
+    <div style="border:1px solid #241E1A;border-radius:12px;overflow:hidden;background:#131010">
+      <div style="display:flex;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid #221C18;background:#100D0C">
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.1em;color:#8A7F76">AGENT ACTION</span>
+        <span style="margin-left:auto;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#8A7F76">src/payment/service.ts</span>
+      </div>
+      <div style="padding:clamp(16px,2.5vw,22px);display:flex;flex-direction:column;gap:12px;min-height:330px">{{ explainFeed }}</div>
+      <div style="display:flex;gap:8px;padding:12px 16px;border-top:1px solid #221C18;background:#100D0C">{{ explainSteps }}</div>
+    </div>
+    <div>
+      <div style="border:1px solid #241E1A;border-radius:12px;background:#0F0C0B;padding:clamp(20px,3vw,28px)">
+        <p style="margin:0;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.12em;color:#8A7F76">THE PIPELINE</p>
+        <div style="display:flex;flex-direction:column;gap:0;margin-top:18px">
+          <div style="border:1px solid #2F2721;border-radius:8px;padding:13px 15px;background:#141110">
+            <p style="margin:0;font-size:14.5px;color:#EFE9E3">Evidence</p>
+            <p style="margin:5px 0 0;font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#8A7F76">diff · command · execution result · Reeve memory</p>
+          </div>
+          <div style="height:22px;width:1px;background:#3A3029;margin-left:22px"></div>
+          <div style="border:1px solid #2F2721;border-radius:8px;padding:13px 15px;background:#141110">
+            <p style="margin:0;font-size:14.5px;color:#EFE9E3">Model</p>
+            <p style="margin:5px 0 0;font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#8A7F76">evidence-only prompt, no invented reasons</p>
+          </div>
+          <div style="height:22px;width:1px;background:#3A3029;margin-left:22px"></div>
+          <div style="border:1px solid #3F2C20;border-radius:8px;padding:13px 15px;background:rgba(217,84,17,.07)">
+            <p style="margin:0;font-size:14.5px;color:#EFE9E3">Explanation</p>
+            <p style="margin:5px 0 0;font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#B4805F">before the action, and after it ran</p>
+          </div>
+        </div>
+      </div>
+      <p style="margin:22px 0 0;font-size:17px;line-height:1.5;color:#EFE9E3;letter-spacing:-.01em">Reeve explains from evidence, not guesses.</p>
+      <p style="margin:10px 0 0;font-size:15px;line-height:1.65;color:#8A7F76">The explanation uses the actual diff, the command that ran, what it printed, and the project memory that applied. Nothing else.</p>
+      <div style="margin-top:20px;display:flex;gap:12px;align-items:flex-start;border-top:1px solid #241E1A;padding-top:18px">
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#8A7F76;letter-spacing:.1em;white-space:nowrap;padding-top:2px">FAIL-SAFE</span>
+        <p style="margin:0;font-size:14.5px;line-height:1.6;color:#8A7F76">If the explanation layer is unavailable, the coding agent keeps working.</p>
+      </div>
+    </div>
+  </div>
+ </div>
+</section>
+
+<!-- ARCHITECTURE -->
+<section id="architecture" style="border-top:1px solid #1B1613;background:#100D0C">
+ <div style="max-width:1240px;margin:0 auto;padding:clamp(64px,8vw,112px) clamp(18px,4vw,40px)">
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:clamp(24px,4vw,56px);align-items:end">
+    <div>
+      <p data-reveal style="margin:0;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.14em;color:#D9500F">ARCHITECTURE</p>
+      <h2 data-reveal style="margin:18px 0 0;font-size:clamp(28px,3.6vw,44px);line-height:1.12;letter-spacing:-.03em;font-weight:600;text-wrap:balance">See the system your agent is actually working on.</h2>
+    </div>
+    <p data-reveal style="margin:0;font-size:16px;line-height:1.65;color:#A0958C;max-width:480px">Generated from the repository itself, not manually maintained. Drag a node to rearrange it. Click one to open the file it came from.</p>
+  </div>
+
+  <div data-reveal style="margin-top:clamp(32px,4vw,48px);display:grid;grid-template-columns:minmax(0,2.4fr) minmax(0,1fr);gap:1px;background:#241E1A;border:1px solid #241E1A;border-radius:12px;overflow:hidden">
+    <div style="background:#0C0A09;position:relative;min-width:0">
+      <div style="position:absolute;top:12px;left:14px;z-index:2;display:flex;gap:6px;align-items:center">
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.1em;color:#8A7F76">REEVE-COPILOT / GRAPH</span>
+      </div>
+      <div style="position:absolute;top:10px;right:12px;z-index:2;display:flex;gap:6px">
+        <button onClick="{{ zoomOut }}" aria-label="Zoom out" style="width:28px;height:28px;border:1px solid #2F2721;background:#151110;color:#A0958C;border-radius:6px;cursor:pointer;font-size:15px;line-height:1" style-hover="color:#EFE9E3;border-color:#4A3D34">−</button>
+        <button onClick="{{ zoomIn }}" aria-label="Zoom in" style="width:28px;height:28px;border:1px solid #2F2721;background:#151110;color:#A0958C;border-radius:6px;cursor:pointer;font-size:15px;line-height:1" style-hover="color:#EFE9E3;border-color:#4A3D34">+</button>
+        <button onClick="{{ resetView }}" style="height:28px;padding:0 10px;border:1px solid #2F2721;background:#151110;color:#A0958C;border-radius:6px;cursor:pointer;font-family:'IBM Plex Mono',monospace;font-size:10.5px" style-hover="color:#EFE9E3;border-color:#4A3D34">RESET</button>
+      </div>
+      {{ graph }}
+      <div style="position:absolute;bottom:10px;left:14px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#7A7068">drag background to pan · drag node to move · click node to open file</div>
+    </div>
+    <div style="background:#131010;padding:clamp(18px,2.5vw,26px);min-width:0">{{ graphPanel }}</div>
+  </div>
+
+  <div data-reveal style="margin-top:clamp(28px,4vw,40px);display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px">
+    <div style="border:1px solid #241E1A;border-radius:10px;padding:16px 18px;background:#131010">
+      <p style="margin:0;font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.1em;color:#8A7F76">STAGE 01</p>
+      <p style="margin:8px 0 0;font-size:14.5px;color:#EFE9E3">Repository</p>
+      <p style="margin:6px 0 0;font-size:13.5px;line-height:1.55;color:#8A7F76">Files, imports and module boundaries are read from the workspace.</p>
+    </div>
+    <div style="border:1px solid #241E1A;border-radius:10px;padding:16px 18px;background:#131010">
+      <p style="margin:0;font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.1em;color:#8A7F76">STAGE 02</p>
+      <p style="margin:8px 0 0;font-size:14.5px;color:#EFE9E3">Grounded analysis</p>
+      <p style="margin:6px 0 0;font-size:13.5px;line-height:1.55;color:#8A7F76">The model describes components and relationships using only what the repository contains.</p>
+    </div>
+    <div style="border:1px solid #241E1A;border-radius:10px;padding:16px 18px;background:#131010">
+      <p style="margin:0;font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.1em;color:#8A7F76">STAGE 03</p>
+      <p style="margin:8px 0 0;font-size:14.5px;color:#EFE9E3">Structured graph</p>
+      <p style="margin:6px 0 0;font-size:13.5px;line-height:1.55;color:#8A7F76">Nodes and edges carry file paths, so every box maps back to code.</p>
+    </div>
+    <div style="border:1px solid #3F2C20;border-radius:10px;padding:16px 18px;background:rgba(217,84,17,.06)">
+      <p style="margin:0;font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.1em;color:#B4805F">STAGE 04</p>
+      <p style="margin:8px 0 0;font-size:14.5px;color:#EFE9E3">Interactive architecture</p>
+      <p style="margin:6px 0 0;font-size:13.5px;line-height:1.55;color:#A0958C">Explore it in the editor and open any component in one click.</p>
+    </div>
+  </div>
+ </div>
+</section>
+
+<!-- TIMELINE -->
+<section id="timeline" style="border-top:1px solid #1B1613">
+ <div style="max-width:1240px;margin:0 auto;padding:clamp(64px,8vw,112px) clamp(18px,4vw,40px)">
+  <p data-reveal style="margin:0;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.14em;color:#D9500F">TIMELINE</p>
+  <h2 data-reveal style="margin:18px 0 0;font-size:clamp(28px,3.8vw,46px);line-height:1.1;letter-spacing:-.03em;font-weight:600;max-width:740px;text-wrap:balance">Your code has a history. Reeve makes it understandable.</h2>
+  <p data-reveal style="margin:20px 0 0;font-size:16px;line-height:1.65;color:#A0958C;max-width:600px">Commits read as decisions, not as subject lines. Pick one to see what it changed and why, with the project memory that was active at the time.</p>
+
+  <div data-reveal style="margin-top:clamp(32px,4vw,48px);display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:1px;background:#241E1A;border:1px solid #241E1A;border-radius:12px;overflow:hidden">
+    <div style="background:#131010;padding:clamp(18px,2.5vw,26px)">
+      <p style="margin:0 0 16px;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.12em;color:#8A7F76">GIT HISTORY / main</p>
+      {{ commitList }}
+    </div>
+    <div style="background:#0F0C0B;padding:clamp(18px,2.5vw,26px);min-width:0">{{ commitDetail }}</div>
+  </div>
+ </div>
+</section>
+
+<!-- HOW IT WORKS / COPILOT -->
+<section id="how" style="border-top:1px solid #1B1613;background:#100D0C">
+ <div style="max-width:1240px;margin:0 auto;padding:clamp(64px,8vw,112px) clamp(18px,4vw,40px)">
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:clamp(28px,4vw,64px);align-items:start">
+    <div>
+      <p data-reveal style="margin:0;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.14em;color:#8A7F76">03 / HOW IT WORKS</p>
+      <h2 data-reveal style="margin:18px 0 0;font-size:clamp(28px,3.6vw,44px);line-height:1.12;letter-spacing:-.03em;font-weight:600;text-wrap:balance">Reeve works around your existing coding agent.</h2>
+      <p data-reveal style="margin:20px 0 0;font-size:16px;line-height:1.65;color:#A0958C;max-width:520px">Copilot keeps handling the coding agent workflow. Reeve adds memory, visibility, and project understanding around it.</p>
+      <p data-reveal style="margin:16px 0 0;font-size:16px;line-height:1.65;color:#A0958C;max-width:520px">Authentication, entitlement, model selection and usage limits stay where they already are. Reeve does not touch them.</p>
+      <div data-reveal style="margin-top:26px;border:1px solid #3F2C20;border-radius:10px;background:rgba(217,84,17,.06);padding:18px 20px;max-width:440px">
+        <p style="margin:0;font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#B4805F">Reeve unavailable?</p>
+        <p style="margin:8px 0 0;font-size:15.5px;line-height:1.55;color:#EFE9E3">Your coding agent keeps working. Every memory call and every explanation runs inside its own boundary, and a failure there never blocks a tool call.</p>
+      </div>
+    </div>
+    <div data-reveal style="border:1px solid #241E1A;border-radius:12px;background:#0F0C0B;padding:clamp(20px,3vw,32px)">
+      <div style="display:flex;flex-direction:column;align-items:stretch;gap:0">
+        <div style="border:1px solid #2F2721;border-radius:8px;padding:12px 16px;background:#141110;text-align:center;font-size:14.5px">Developer</div>
+        <div style="height:20px;width:1px;background:#3A3029;margin:0 auto"></div>
+        <div style="border:1px solid #D9500F;border-radius:10px;background:rgba(217,84,17,.08);padding:16px">
+          <p style="margin:0 0 12px;text-align:center;font-size:15px;color:#EFE9E3;letter-spacing:-.01em">Reeve Devpilot</p>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px">
+            <div style="border:1px solid #3F2C20;border-radius:6px;padding:9px;text-align:center;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#E8A57C">MEMORY</div>
+            <div style="border:1px solid #3F2C20;border-radius:6px;padding:9px;text-align:center;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#E8A57C">EXPLANATIONS</div>
+            <div style="border:1px solid #3F2C20;border-radius:6px;padding:9px;text-align:center;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#E8A57C">ARCHITECTURE</div>
+            <div style="border:1px solid #3F2C20;border-radius:6px;padding:9px;text-align:center;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#E8A57C">TIMELINE</div>
+          </div>
+        </div>
+        <div style="height:20px;width:1px;background:#3A3029;margin:0 auto"></div>
+        <div style="border:1px solid #2F2721;border-radius:8px;padding:12px 16px;background:#141110;text-align:center;font-size:14.5px">GitHub Copilot</div>
+        <div style="height:20px;width:1px;background:#3A3029;margin:0 auto"></div>
+        <div style="border:1px solid #2F2721;border-radius:8px;padding:12px 16px;background:#141110;text-align:center;font-size:14.5px">Codebase</div>
+      </div>
+    </div>
+  </div>
+ </div>
+</section>
+
+<!-- AWS -->
+<section style="border-top:1px solid #1B1613">
+ <div style="max-width:1240px;margin:0 auto;padding:clamp(64px,8vw,104px) clamp(18px,4vw,40px)">
+  <p data-reveal style="margin:0;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.14em;color:#8A7F76">04 / INFRASTRUCTURE</p>
+  <h2 data-reveal style="margin:18px 0 0;font-size:clamp(28px,3.6vw,44px);line-height:1.12;letter-spacing:-.03em;font-weight:600">Built with AWS.</h2>
+  <p data-reveal style="margin:20px 0 0;font-size:16px;line-height:1.65;color:#A0958C;max-width:620px">The memory layer runs outside the editor. These are the services it actually runs on, plus the one that hosts this page.</p>
+
+  <div data-reveal style="margin-top:clamp(32px,4vw,44px);display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:1px;background:#241E1A;border:1px solid #241E1A;border-radius:12px;overflow:hidden">
+    <div style="background:#131010;padding:clamp(20px,3vw,28px)">
+      <p style="margin:0;font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.1em;color:#8A7F76">COMPUTE</p>
+      <p style="margin:13px 0 0;font-size:19px;letter-spacing:-.015em;color:#EFE9E3">Amazon EC2</p>
+      <p style="margin:12px 0 0;font-size:14.5px;line-height:1.6;color:#8A7F76"><span style="color:#EFE9E3">What we use it for.</span> Runs the Dockerized Reeve MCP backend, with Caddy in front as the reverse proxy and TLS terminator.</p>
+      <p style="margin:10px 0 0;font-size:14.5px;line-height:1.6;color:#8A7F76"><span style="color:#EFE9E3">Why it matters.</span> The editor holds an SSE connection open for the length of a session. A long-lived instance handles that better than a request-scoped runtime.</p>
+    </div>
+    <div style="background:#131010;padding:clamp(20px,3vw,28px)">
+      <p style="margin:0;font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.1em;color:#8A7F76">INFERENCE</p>
+      <p style="margin:13px 0 0;font-size:19px;letter-spacing:-.015em;color:#EFE9E3">Amazon Bedrock</p>
+      <p style="margin:12px 0 0;font-size:14.5px;line-height:1.6;color:#8A7F76"><span style="color:#EFE9E3">What we use it for.</span> Mistral Large 2 for memory reasoning, Titan Text Embeddings v2 for the vectors behind retrieval.</p>
+      <p style="margin:10px 0 0;font-size:14.5px;line-height:1.6;color:#8A7F76"><span style="color:#EFE9E3">Why it matters.</span> Retrieval decides what the agent sees. Keeping embeddings and reasoning on one managed endpoint means no model hosting to babysit.</p>
+    </div>
+    <div style="background:#0F0C0B;padding:clamp(20px,3vw,28px)">
+      <p style="margin:0;font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.1em;color:#8A7F76">WEBSITE ONLY</p>
+      <p style="margin:13px 0 0;font-size:19px;letter-spacing:-.015em;color:#EFE9E3">AWS Amplify</p>
+      <p style="margin:12px 0 0;font-size:14.5px;line-height:1.6;color:#8A7F76"><span style="color:#EFE9E3">What we use it for.</span> Building and hosting this page on push to main.</p>
+      <p style="margin:10px 0 0;font-size:14.5px;line-height:1.6;color:#8A7F76"><span style="color:#EFE9E3">Why it matters.</span> The product page is not part of the editor or the memory service. It ships on its own pipeline and shares nothing with them.</p>
+    </div>
+  </div>
+
+  <div data-reveal style="margin-top:clamp(24px,3vw,32px);display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:clamp(18px,2.5vw,28px);align-items:start">
+    <div style="border:1px solid #241E1A;border-radius:12px;background:#0F0C0B;padding:clamp(20px,3vw,28px)">
+      <p style="margin:0;font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.1em;color:#8A7F76">WHERE AWS SITS · APPLICATION</p>
+      <div style="margin-top:18px;display:flex;flex-direction:column;gap:0">
+        <div style="border:1px solid #2F2721;border-radius:7px;padding:11px 14px;background:#141110;font-size:14px">Reeve Devpilot · local Code - OSS build</div>
+        <div style="height:16px;width:1px;background:#3A3029;margin-left:20px"></div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#8A7F76;padding-left:20px">MCP over SSE</div>
+        <div style="height:16px;width:1px;background:#3A3029;margin-left:20px"></div>
+        <div style="border:1px solid #3F2C20;border-radius:7px;padding:11px 14px;background:rgba(217,84,17,.07)">
+          <p style="margin:0;font-size:14px;color:#EFE9E3">Caddy → Reeve MCP server</p>
+          <p style="margin:5px 0 0;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#B4805F">EC2 · docker · mcp.reeve.co.in</p>
+        </div>
+        <div style="height:16px;width:1px;background:#3A3029;margin-left:20px"></div>
+        <div style="border:1px solid #2F2721;border-radius:7px;padding:11px 14px;background:#141110">
+          <p style="margin:0;font-size:14px;color:#EFE9E3">Memory store and retrieval</p>
+          <p style="margin:5px 0 0;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#8A7F76">Bedrock · Titan v2 embeddings · Mistral Large 2</p>
+        </div>
+      </div>
+      <p style="margin:18px 0 0;font-size:13.5px;line-height:1.6;color:#8A7F76">Copilot model calls are separate. They stay on GitHub's infrastructure and never pass through here.</p>
+    </div>
+    <div style="border:1px solid #241E1A;border-radius:12px;background:#131010;padding:clamp(20px,3vw,28px)">
+      <p style="margin:0;font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.1em;color:#8A7F76">WHERE AWS SITS · THIS WEBSITE</p>
+      <div style="margin-top:18px;display:flex;flex-direction:column;gap:0">
+        <div style="border:1px solid #2F2721;border-radius:7px;padding:11px 14px;background:#141110;font-size:14px">Git push to main</div>
+        <div style="height:16px;width:1px;background:#3A3029;margin-left:20px"></div>
+        <div style="border:1px solid #2F2721;border-radius:7px;padding:11px 14px;background:#141110;font-size:14px">Amplify build</div>
+        <div style="height:16px;width:1px;background:#3A3029;margin-left:20px"></div>
+        <div style="border:1px solid #2F2721;border-radius:7px;padding:11px 14px;background:#141110;font-size:14px">CDN and TLS</div>
+      </div>
+      <p style="margin:18px 0 0;font-size:13.5px;line-height:1.6;color:#8A7F76">This page is static. It holds no API keys, talks to no Reeve service, and reads no project memory.</p>
+    </div>
+  </div>
+ </div>
+</section>
+
+<!-- STACK -->
+<section style="border-top:1px solid #1B1613;background:#100D0C">
+ <div style="max-width:1240px;margin:0 auto;padding:clamp(48px,6vw,72px) clamp(18px,4vw,40px)">
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:clamp(20px,3vw,48px);align-items:center">
+    <p data-reveal style="margin:0;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.14em;color:#8A7F76">BUILT WITH</p>
+    <div data-reveal style="display:flex;flex-wrap:wrap;gap:8px;grid-column:span 2">
+      <span style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:#A0958C;border:1px solid #2A231E;border-radius:6px;padding:7px 12px">TypeScript</span>
+      <span style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:#A0958C;border:1px solid #2A231E;border-radius:6px;padding:7px 12px">VS Code / Code - OSS</span>
+      <span style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:#A0958C;border:1px solid #2A231E;border-radius:6px;padding:7px 12px">GitHub Copilot</span>
+      <span style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:#A0958C;border:1px solid #2A231E;border-radius:6px;padding:7px 12px">Model Context Protocol</span>
+      <span style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:#A0958C;border:1px solid #2A231E;border-radius:6px;padding:7px 12px">Server-Sent Events</span>
+      <span style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:#A0958C;border:1px solid #2A231E;border-radius:6px;padding:7px 12px">Git</span>
+      <span style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:#A0958C;border:1px solid #2A231E;border-radius:6px;padding:7px 12px">Mermaid</span>
+      <span style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:#A0958C;border:1px solid #2A231E;border-radius:6px;padding:7px 12px">AWS</span>
+      <span style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:#A0958C;border:1px solid #2A231E;border-radius:6px;padding:7px 12px">LLMs</span>
+    </div>
+  </div>
+ </div>
+</section>
+
+<!-- DEMO -->
+<section id="demo" style="border-top:1px solid #1B1613">
+ <div style="max-width:1240px;margin:0 auto;padding:clamp(64px,8vw,104px) clamp(18px,4vw,40px)">
+  <h2 data-reveal style="margin:0;font-size:clamp(28px,3.6vw,44px);line-height:1.12;letter-spacing:-.03em;font-weight:600">See Reeve in action.</h2>
+  <div data-reveal style="margin-top:clamp(28px,4vw,40px)">{{ demo }}</div>
+  <div data-reveal style="margin-top:22px;display:flex;flex-wrap:wrap;gap:8px">
+    <a href="#memory" style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:#A0958C;border:1px solid #2A231E;border-radius:6px;padding:7px 12px" style-hover="color:#EFE9E3;border-color:#4A3D34">Memory</a>
+    <a href="#explain" style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:#A0958C;border:1px solid #2A231E;border-radius:6px;padding:7px 12px" style-hover="color:#EFE9E3;border-color:#4A3D34">Explanations</a>
+    <a href="#architecture" style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:#A0958C;border:1px solid #2A231E;border-radius:6px;padding:7px 12px" style-hover="color:#EFE9E3;border-color:#4A3D34">Architecture</a>
+    <a href="#timeline" style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:#A0958C;border:1px solid #2A231E;border-radius:6px;padding:7px 12px" style-hover="color:#EFE9E3;border-color:#4A3D34">Timeline</a>
+    <a href="#how" style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:#A0958C;border:1px solid #2A231E;border-radius:6px;padding:7px 12px" style-hover="color:#EFE9E3;border-color:#4A3D34">AWS</a>
+  </div>
+ </div>
+</section>
+
+<!-- FINAL CTA -->
+<section style="border-top:1px solid #1B1613;background:#100D0C">
+ <div style="max-width:1240px;margin:0 auto;padding:clamp(72px,9vw,128px) clamp(18px,4vw,40px)">
+  <h2 data-reveal style="margin:0;font-size:clamp(34px,5vw,62px);line-height:1.04;letter-spacing:-.035em;font-weight:600">Stop rebuilding context.</h2>
+  <p data-reveal style="margin:20px 0 0;font-size:clamp(16px,1.6vw,19px);line-height:1.6;color:#A0958C;max-width:560px">Build with an agent that remembers what your project already knows.</p>
+  <div data-reveal style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-top:32px">
+    <a href="https://reeve-devpilot-downloads-309490998255.s3.us-west-2.amazonaws.com/Reeve-Devpilot-Setup.exe" download style="display:inline-flex;align-items:center;gap:10px;font-size:15px;font-weight:600;color:#12100E;background:#E4692A;padding:14px 26px;border-radius:9px;border:1px solid #F0854B;box-shadow:0 4px 22px rgba(228,105,42,.35);transition:background .15s ease,transform .15s ease" style-hover="background:#F0854B;transform:translateY(-1px)">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M0 2.222L6.5 1.333V7.5H0V2.222zm7.5-1.472L16 0v7.5H7.5V.75zM0 8.5h6.5v6.167L0 13.778V8.5zm7.5 0H16V16l-8.5-.75V8.5z"/></svg>
+      Download for Windows (.exe)
+    </a>
+    <a href="https://github.com/Ampplex/Reeve-Copilot" target="_blank" rel="noopener" style="font-size:15px;font-weight:500;color:#EFE9E3;background:transparent;padding:14px 24px;border-radius:9px;border:1px solid #2F2721" style-hover="border-color:#4A3D34;background:#171310">View on GitHub</a>
+  </div>
+  <p data-reveal style="margin:16px 0 0;font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.04em;color:#8A7F76">Version 1.0.0 for Windows 10 / 11 (64-bit) • 290 MB</p>
+ </div>
+</section>
+
+<footer style="border-top:1px solid #1B1613">
+ <div style="max-width:1240px;margin:0 auto;padding:clamp(40px,5vw,64px) clamp(18px,4vw,40px);display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:32px;align-items:start">
+  <div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <svg width="16" height="21" viewBox="0 0 40 52" fill="none" aria-hidden="true"><path d="M9 10V32H31V16" stroke="#D9500F" stroke-width="4"/><path d="M20 16V44" stroke="#D9500F" stroke-width="4"/><circle cx="9" cy="8" r="6" fill="#D9500F"/><circle cx="31" cy="13" r="6" fill="#D9500F"/><circle cx="20" cy="14" r="6" fill="#D9500F"/><circle cx="20" cy="45" r="6" fill="#D9500F"/></svg>
+      <span style="font-size:14.5px;font-weight:600">Reeve Devpilot</span>
+    </div>
+    <p style="margin:12px 0 0;font-size:14px;color:#8A7F76">AI coding without context rot.</p>
+    <p style="margin:18px 0 0;font-size:12.5px;line-height:1.6;color:#7A7068;max-width:320px">An independent project built on Code - OSS. Not affiliated with, endorsed by, or supported by Microsoft or GitHub.</p>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:9px">
+    <p style="margin:0 0 4px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.12em;color:#7A7068">PRODUCT</p>
+    <a href="#product" style="font-size:14px;color:#8A7F76" style-hover="color:#EFE9E3">Product</a>
+    <a href="#memory" style="font-size:14px;color:#8A7F76" style-hover="color:#EFE9E3">Memory</a>
+    <a href="#explain" style="font-size:14px;color:#8A7F76" style-hover="color:#EFE9E3">Explain</a>
+    <a href="#architecture" style="font-size:14px;color:#8A7F76" style-hover="color:#EFE9E3">Architecture</a>
+    <a href="#timeline" style="font-size:14px;color:#8A7F76" style-hover="color:#EFE9E3">Timeline</a>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:9px">
+    <p style="margin:0 0 4px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.12em;color:#7A7068">RESOURCES</p>
+    <a href="https://github.com/Ampplex/Reeve-Copilot" target="_blank" rel="noopener" style="font-size:14px;color:#8A7F76" style-hover="color:#EFE9E3">GitHub</a>
+    <a href="https://github.com/Ampplex/Reeve-Copilot#readme" target="_blank" rel="noopener" style="font-size:14px;color:#8A7F76" style-hover="color:#EFE9E3">Documentation</a>
+    <a href="#demo" style="font-size:14px;color:#8A7F76" style-hover="color:#EFE9E3">Demo</a>
+    <a href="https://mcp.reeve.co.in" target="_blank" rel="noopener" style="font-size:14px;color:#8A7F76" style-hover="color:#EFE9E3">Reeve MCP server</a>
+  </div>
+ </div>
+ <div style="max-width:1240px;margin:0 auto;padding:0 clamp(18px,4vw,40px) 40px">
+   <p style="margin:0;font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#7A7068">© 2026 Ankesh Kumar · Code - OSS components under MIT</p>
+ </div>
+</footer>
+
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;getReeveUrl&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;https://github.com/Ampplex/Reeve-Copilot/releases&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Links&quot;},&quot;demoVideoId&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Links&quot;}}">
+const GH = 'https://github.com/Ampplex/Reeve-Copilot';
+const BLOB = GH + '/blob/main/';
+const h = React.createElement;
+
+const HERO = [
+  { k: 'act', label: 'ACTION', text: 'Editing src/payment/service.ts' },
+  { k: 'ask', label: 'WHY?', text: 'Making the payment operation idempotent.' },
+  { k: 'ev', label: 'EVIDENCE', text: 'Constraint recalled from project memory: payment operations must remain idempotent. The diff adds an idempotency key lookup before the charge.' },
+  { k: 'done', label: 'AFTER', text: '18 tests passed. Capture path now returns the stored result on retry.' }
+];
+
+const MEM = [
+  { date: 'JAN 2026', state: 'superseded', text: 'PostgreSQL is the source of truth for transactions.', note: 'Superseded by the March migration decision.' },
+  { date: 'MAR 2026', state: 'superseded', text: 'Migrating transactions to MongoDB.', note: 'Reverted in May after write consistency issues.' },
+  { date: 'MAY 2026', state: 'superseded', text: 'MongoDB → PostgreSQL.', note: 'The move back. Recorded with the reason.' },
+  { date: 'CURRENT', state: 'current', text: 'PostgreSQL is the source of truth for transactions.', note: 'Active constraint. This is what the agent gets.' }
+];
+
+const RECALL = [
+  { c: 'CONSTRAINT', t: 'Payment operations must remain idempotent.' },
+  { c: 'DECISION', t: 'Current database: PostgreSQL.' },
+  { c: 'CONVENTION', t: 'Authentication uses JWT.' }
+];
+
+const NODES = [
+  { id: 'chat', label: 'Chat participant', sub: 'conversation runtime', x: 30, y: 40, kind: 'module', path: 'extensions/copilot/src/extension/conversation/vscode-node/chatParticipants.ts', desc: 'Injects recalled memory into the prompt before the model runs, then records the interaction afterwards.' },
+  { id: 'client', label: 'reeveClient.ts', sub: 'MCP over SSE', x: 30, y: 300, kind: 'module', path: 'extensions/copilot/src/platform/reeve/node/reeveClient.ts', desc: 'Opens the SSE connection, calls retrieve_memory_context and store_memory, and fails quietly when the server is unreachable.' },
+  { id: 'mcp', label: 'Reeve MCP server', sub: 'mcp.reeve.co.in', x: 30, y: 430, kind: 'external', path: '', desc: 'Holds temporal project memory outside the editor. Current facts and superseded ones are stored with their relationships.' },
+  { id: 'tools', label: 'toolsService', sub: 'tool execution', x: 330, y: 170, kind: 'module', path: 'extensions/copilot/src/extension/tools/node/reeveSearchMemoryTool.ts', desc: 'Every tool call passes through here. Reeve hooks onBeforeToolAction and onAfterToolAction without changing the call itself.' },
+  { id: 'observer', label: 'SessionActionObserver', sub: 'evidence collector', x: 330, y: 300, kind: 'module', path: 'extensions/copilot/src/platform/reeve/node/reeveActionObserver.ts', desc: 'Classifies actions as edit, create, delete, command or test, and drops read-only calls so the developer is not interrupted.' },
+  { id: 'layer', label: 'ExplanationLayer', sub: 'lifecycle', x: 620, y: 300, kind: 'module', path: 'extensions/copilot/src/platform/reeve/node/humanCenteredExplanationLayer.ts', desc: 'Owns one explanation lifecycle per chat session and streams the result into the chat response.' },
+  { id: 'human', label: 'HumanExplanationService', sub: 'prompt engine', x: 620, y: 430, kind: 'module', path: 'extensions/copilot/src/platform/reeve/node/humanExplanationService.ts', desc: 'Sends structured evidence to the active chat model with an evidence-only prompt, and truncates oversized diffs.' },
+  { id: 'model', label: 'Copilot model', sub: 'vscode.lm', x: 620, y: 40, kind: 'external', path: '', desc: 'Model selection, entitlement and limits stay with the existing Copilot integration. Reeve only calls it.' },
+  { id: 'adapters', label: 'reeveAdapters.ts', sub: 'harness bridge', x: 330, y: 430, kind: 'module', path: 'src/vs/platform/agentHost/node/reeve/reeveAdapters.ts', desc: 'Translates Copilot and Claude tool invocations into one harness-agnostic action event.' }
+];
+const EDGES = [['chat','client'],['client','mcp'],['chat','model'],['chat','tools'],['tools','observer'],['observer','layer'],['layer','human'],['human','model'],['client','layer'],['observer','adapters']];
+const NW = 210, NH = 56;
+
+const COMMITS = [
+  { sha: 'a41c9d2', msg: 'Add authentication', when: '12 Jan', files: 'src/auth/middleware.ts +2 more', why: 'Introduced JWT session handling in middleware so route handlers stop parsing tokens themselves.', mem: 'Recorded: authentication uses JWT.' },
+  { sha: '7e0b134', msg: 'Replace MongoDB with PostgreSQL', when: '4 May', files: 'src/payment/service.ts +9 more', why: 'Moved transaction persistence to PostgreSQL to restore the database architecture defined in the current project constraints.', mem: 'Supersedes: migrating transactions to MongoDB (Mar 2026).' },
+  { sha: 'c92f508', msg: 'Add payment idempotency', when: '2 Jun', files: 'src/payment/service.ts, src/payment/ledger.ts', why: 'Capture now records the idempotency key inside the same transaction as the charge, so a retried request returns the stored result instead of charging twice.', mem: 'Constraint applied: payment operations must remain idempotent.' },
+  { sha: '1d6aa77', msg: 'Refactor payment service', when: '18 Jun', files: 'src/payment/*', why: 'Split the capture path from the refund path. No behaviour change, and the idempotency guard stayed on both.', mem: 'No memory change.' }
+];
+
+class Component extends DCLogic {
+  state = { scrolled: false, menu: false, hero: 0, mem: 3, memAuto: true, ex: 0, exAuto: true, node: 'layer', commit: 2, head: null, zoom: 1, pan: { x: 0, y: 0 }, pos: {}, drag: null };
+
+  componentDidMount() {
+    this.onScroll = () => {
+      const s = window.scrollY > 12;
+      if (s !== this.state.scrolled) { this.setState({ scrolled: s }); }
+    };
+    window.addEventListener('scroll', this.onScroll, { passive: true });
+
+    if ('IntersectionObserver' in window) {
+      this.io = new IntersectionObserver(entries => {
+        entries.forEach(en => {
+          if (en.isIntersecting) { en.target.classList.remove('rv-pre'); en.target.classList.add('rv-in'); this.io.unobserve(en.target); }
+        });
+      }, { rootMargin: '0px 0px -6% 0px', threshold: 0.03 });
+    }
+    this.scanReveal = () => {
+      document.querySelectorAll('[data-reveal]').forEach(e => {
+        if (e.__rv) { return; }
+        e.__rv = 1;
+        if (!this.io || e.getBoundingClientRect().top < window.innerHeight * 0.96) { e.classList.add('rv-in'); return; }
+        e.classList.add('rv-pre');
+        this.io.observe(e);
+      });
+    };
+    this.scanReveal();
+    setTimeout(this.scanReveal, 300);
+
+    this.heroT = setInterval(() => this.setState(s => ({ hero: (s.hero + 1) % (HERO.length + 1) })), 2200);
+    this.memT = setInterval(() => this.setState(s => s.memAuto ? { mem: (s.mem + 1) % MEM.length } : null), 3000);
+    this.exT = setInterval(() => this.setState(s => s.exAuto ? { ex: (s.ex + 1) % 4 } : null), 2600);
+
+    this.onMove = e => {
+      const d = this.state.drag;
+      if (!d) { return; }
+      const p = e.touches ? e.touches[0] : e;
+      if (d.type === 'pan') {
+        this.setState({ pan: { x: d.ox + (p.clientX - d.sx), y: d.oy + (p.clientY - d.sy) } });
+      } else {
+        const k = this.state.zoom * (this.svgScale || 1);
+        const np = Object.assign({}, this.state.pos);
+        np[d.id] = { x: d.ox + (p.clientX - d.sx) / k, y: d.oy + (p.clientY - d.sy) / k };
+        this.setState({ pos: np, moved: true });
+      }
+    };
+    this.onUp = () => { if (this.state.drag) { this.setState({ drag: null }); } };
+    window.addEventListener('mousemove', this.onMove);
+    window.addEventListener('mouseup', this.onUp);
+  }
+
+  componentDidUpdate() { if (this.scanReveal) { this.scanReveal(); } }
+
+  componentWillUnmount() {
+    window.removeEventListener('scroll', this.onScroll);
+    window.removeEventListener('mousemove', this.onMove);
+    window.removeEventListener('mouseup', this.onUp);
+    clearInterval(this.heroT); clearInterval(this.memT); clearInterval(this.exT);
+  }
+
+  nodePos(n) { return this.state.pos[n.id] || { x: n.x, y: n.y }; }
+
+  startNodeDrag(n, e) {
+    e.preventDefault(); e.stopPropagation();
+    const p = this.nodePos(n);
+    const svg = e.currentTarget.ownerSVGElement;
+    if (svg) { this.svgScale = svg.getBoundingClientRect().width / 900; }
+    this.dragMoved = false;
+    this.setState({ drag: { type: 'node', id: n.id, sx: e.clientX, sy: e.clientY, ox: p.x, oy: p.y } });
+  }
+
+  renderVals() {
+    const st = this.state;
+    const mono = "'IBM Plex Mono',monospace";
+
+    // hero feed
+    const heroFeed = HERO.slice(0, st.hero).map((s, i) => h('div', {
+      key: s.k,
+      style: {
+        border: '1px solid ' + (s.k === 'ev' ? '#3F2C20' : '#241E1A'),
+        background: s.k === 'ev' ? 'rgba(217,84,17,.07)' : '#161211',
+        borderRadius: 8, padding: '10px 12px',
+        animation: 'none', opacity: 1
+      }
+    }, [
+      h('div', { key: 'l', style: { fontFamily: mono, fontSize: 10, letterSpacing: '.12em', color: s.k === 'ev' ? '#B4805F' : '#8A7F76' } }, s.label),
+      h('div', { key: 't', style: { marginTop: 6, fontSize: 12.5, lineHeight: 1.5, color: '#D8D0C9', fontFamily: s.k === 'act' ? mono : undefined } }, s.text)
+    ]));
+    if (st.hero < HERO.length) {
+      heroFeed.push(h('div', { key: 'typing', style: { display: 'flex', gap: 5, alignItems: 'center', padding: '6px 2px' } },
+        [0, 1, 2].map(i => h('span', { key: i, style: { width: 5, height: 5, borderRadius: '50%', background: '#D9500F', display: 'block', animation: 'pulse 1.2s ease-in-out ' + (i * 0.18) + 's infinite' } }))
+      ));
+    }
+
+    // problem timeline
+    const PROB = [
+      ['PROJECT START', 'PostgreSQL is the source of truth.'],
+      ['WEEKS LATER', 'More conversations. More code. More context.'],
+      ['ARCHITECTURE CHANGES', 'Move transactions to MongoDB.'],
+      ['LATER', 'Move transactions back to PostgreSQL.'],
+      ['TODAY', 'The agent has to figure out what is current.']
+    ];
+    const problemTimeline = h('div', { style: { display: 'flex', flexDirection: 'column', gap: 22 } },
+      PROB.map((p, i) => h('div', { key: i, style: { position: 'relative' } }, [
+        h('div', { key: 'd', style: { position: 'absolute', left: -(38), top: 4, width: 7, height: 7, borderRadius: '50%', background: i === PROB.length - 1 ? '#D9500F' : '#3A3029' } }),
+        h('p', { key: 'l', style: { margin: 0, fontFamily: mono, fontSize: 10.5, letterSpacing: '.12em', color: i === PROB.length - 1 ? '#D9500F' : '#8A7F76' } }, p[0]),
+        h('p', { key: 't', style: { margin: '6px 0 0', fontSize: 15.5, lineHeight: 1.5, color: i === PROB.length - 1 ? '#EFE9E3' : '#A0958C' } }, p[1])
+      ]))
+    );
+
+    // memory track
+    const memoryTrack = h('div', { style: { display: 'flex', flexDirection: 'column', gap: 10 } },
+      MEM.map((m, i) => {
+        const sel = i === st.mem;
+        const cur = m.state === 'current';
+        return h('button', {
+          key: i,
+          onClick: () => this.setState({ mem: i, memAuto: false }),
+          style: {
+            textAlign: 'left', cursor: 'pointer', font: 'inherit',
+            border: '1px solid ' + (sel ? (cur ? '#D9500F' : '#4A3D34') : '#241E1A'),
+            background: sel ? (cur ? 'rgba(217,84,17,.08)' : '#181413') : '#141110',
+            borderRadius: 9, padding: '14px 16px', transition: 'border-color .2s,background .2s'
+          }
+        }, [
+          h('div', { key: 'h', style: { display: 'flex', alignItems: 'center', gap: 10 } }, [
+            h('span', { key: 'd', style: { fontFamily: mono, fontSize: 10.5, letterSpacing: '.1em', color: cur ? '#D9500F' : '#8A7F76' } }, m.date),
+            h('span', { key: 's', style: { marginLeft: 'auto', fontFamily: mono, fontSize: 9.5, letterSpacing: '.1em', color: cur ? '#12100E' : '#8A7F76', background: cur ? '#D9500F' : 'transparent', border: '1px solid ' + (cur ? '#D9500F' : '#3A3029'), borderRadius: 4, padding: '2px 6px' } }, cur ? 'CURRENT' : 'SUPERSEDED')
+          ]),
+          h('p', { key: 't', style: { margin: '9px 0 0', fontSize: 15, lineHeight: 1.45, color: cur ? '#EFE9E3' : '#8A7F76', textDecoration: cur ? 'none' : 'line-through', textDecorationColor: '#453A33' } }, m.text),
+          sel ? h('p', { key: 'n', style: { margin: '8px 0 0', fontSize: 13, lineHeight: 1.5, color: '#8A7F76' } }, m.note) : null
+        ]);
+      })
+    );
+
+    const memoryPanel = h('div', { style: { display: 'flex', flexDirection: 'column', gap: 10, flex: 1 } }, [
+      h('div', { key: 'q', style: { border: '1px solid #241E1A', borderRadius: 8, padding: '12px 14px', background: '#141110' } }, [
+        h('p', { key: 'a', style: { margin: 0, fontFamily: mono, fontSize: 10.5, letterSpacing: '.1em', color: '#8A7F76' } }, 'AGENT REQUEST'),
+        h('p', { key: 'b', style: { margin: '7px 0 0', fontSize: 14, color: '#D8D0C9' } }, 'Make the capture endpoint safe to retry.')
+      ]),
+      ...RECALL.map((r, i) => h('div', { key: i, style: { border: '1px solid #3F2C20', borderRadius: 8, padding: '12px 14px', background: 'rgba(217,84,17,.06)' } }, [
+        h('p', { key: 'c', style: { margin: 0, fontFamily: mono, fontSize: 10, letterSpacing: '.1em', color: '#B4805F' } }, r.c),
+        h('p', { key: 't', style: { margin: '6px 0 0', fontSize: 14, lineHeight: 1.45, color: '#EFE9E3' } }, r.t)
+      ])),
+      h('p', { key: 'f', style: { margin: 'auto 0 0', paddingTop: 14, fontSize: 13, lineHeight: 1.55, color: '#8A7F76', borderTop: '1px solid #241E1A' } }, '3 of 41 stored records retrieved. Superseded facts stay in the graph as history, and stay out of the prompt.')
+    ]);
+
+    // explain
+    const EX = [
+      { l: 'AGENT ACTION', body: h('div', {}, [
+          h('p', { key: 1, style: { margin: 0, fontFamily: mono, fontSize: 13, color: '#EFE9E3' } }, 'edit_file → src/payment/service.ts'),
+          h('p', { key: 2, style: { margin: '8px 0 0', fontSize: 13.5, color: '#8A7F76' } }, 'Queued. Waiting for approval.')
+        ]) },
+      { l: 'BEFORE EXECUTION', body: h('div', {}, [
+          h('p', { key: 1, style: { margin: 0, fontSize: 14.5, lineHeight: 1.55, color: '#EFE9E3' } }, 'Updating the payment operation to preserve idempotency.'),
+          h('div', { key: 2, style: { display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 12 } },
+            ['DIFF', 'PROJECT CONSTRAINT', 'RELEVANT MEMORY'].map(t => h('span', { key: t, style: { fontFamily: mono, fontSize: 10, letterSpacing: '.08em', color: '#B4805F', border: '1px solid #3F2C20', borderRadius: 4, padding: '4px 8px' } }, t))),
+          h('pre', { key: 3, style: { margin: '12px 0 0', fontFamily: mono, fontSize: 11.5, lineHeight: 1.7, background: '#0E0C0B', border: '1px solid #241E1A', borderRadius: 7, padding: '10px 12px', overflowX: 'auto' } }, [
+            h('div', { key: 'a', style: { color: '#7FA88F' } }, '+  const seen = await ledger.find(key);'),
+            h('div', { key: 'b', style: { color: '#7FA88F' } }, '+  if (seen) return seen.result;'),
+            h('div', { key: 'c', style: { color: '#A5796B' } }, '-  return charge(req);')
+          ])
+        ]) },
+      { l: 'EXECUTING', body: h('div', {}, [
+          h('p', { key: 1, style: { margin: 0, fontFamily: mono, fontSize: 13, color: '#EFE9E3' } }, '$ npm test'),
+          h('p', { key: 2, style: { margin: '10px 0 0', fontFamily: mono, fontSize: 12, color: '#8A7F76' } }, 'payment/service.spec.ts  running…')
+        ]) },
+      { l: 'AFTER EXECUTION', body: h('div', {}, [
+          ...['File updated', 'Tests completed', '18 tests passed'].map((t, i) => h('p', { key: i, style: { margin: i ? '8px 0 0' : 0, fontSize: 14, color: '#D8D0C9', display: 'flex', gap: 9 } }, [h('span', { key: 'c', style: { color: '#7FA88F' } }, '✓'), t])),
+          h('p', { key: 'x', style: { margin: '14px 0 0', fontSize: 14, lineHeight: 1.6, color: '#8A7F76' } }, 'Retrying a capture with the same key now returns the stored result instead of charging again. The change matches the idempotency constraint held in project memory.')
+        ]) }
+    ];
+    const explainFeed = h('div', { style: { display: 'flex', flexDirection: 'column', gap: 12 } },
+      EX.slice(0, st.ex + 1).map((s, i) => {
+        const active = i === st.ex;
+        return h('div', { key: i, style: { border: '1px solid ' + (active ? '#3F2C20' : '#241E1A'), background: active ? 'rgba(217,84,17,.05)' : '#141110', borderRadius: 9, padding: '13px 15px', opacity: active ? 1 : 0.55, transition: 'opacity .3s,border-color .3s' } }, [
+          h('p', { key: 'l', style: { margin: 0, fontFamily: mono, fontSize: 10, letterSpacing: '.12em', color: active ? '#B4805F' : '#8A7F76' } }, s.l),
+          h('div', { key: 'b', style: { marginTop: 9 } }, s.body)
+        ]);
+      })
+    );
+    const explainSteps = ['ACTION', 'BEFORE', 'RUN', 'AFTER'].map((t, i) => h('button', {
+      key: t,
+      onClick: () => this.setState({ ex: i, exAuto: false }),
+      style: { flex: 1, cursor: 'pointer', font: 'inherit', fontFamily: mono, fontSize: 10, letterSpacing: '.08em', padding: '7px 4px', borderRadius: 5, border: '1px solid ' + (i === st.ex ? '#D9500F' : '#2A231E'), background: i === st.ex ? 'rgba(217,84,17,.1)' : 'transparent', color: i === st.ex ? '#E8A57C' : '#8A7F76' }
+    }, t));
+
+    // graph
+    const posOf = id => { const n = NODES.find(x => x.id === id); return this.nodePos(n); };
+    const edges = EDGES.map(([a, b], i) => {
+      const pa = posOf(a), pb = posOf(b);
+      const x1 = pa.x + NW / 2, y1 = pa.y + NH / 2, x2 = pb.x + NW / 2, y2 = pb.y + NH / 2;
+      const lit = st.node === a || st.node === b;
+      return h('line', { key: i, x1, y1, x2, y2, stroke: lit ? '#D9500F' : '#2E2620', strokeWidth: lit ? 1.6 : 1.2, strokeDasharray: (a === 'client' && b === 'layer') ? '5 5' : undefined });
+    });
+    const nodeEls = NODES.map(n => {
+      const p = this.nodePos(n);
+      const sel = st.node === n.id;
+      const ext = n.kind === 'external';
+      return h('g', {
+        key: n.id,
+        transform: 'translate(' + p.x + ',' + p.y + ')',
+        style: { cursor: 'grab' },
+        onMouseDown: e => this.startNodeDrag(n, e),
+        onClick: () => this.setState({ node: n.id })
+      }, [
+        h('rect', { key: 'r', width: NW, height: NH, rx: ext ? 27 : 8, fill: sel ? '#1E1512' : '#151110', stroke: sel ? '#D9500F' : (ext ? '#4A3D34' : '#2E2620'), strokeWidth: sel ? 1.6 : 1, strokeDasharray: ext ? '4 4' : undefined }),
+        h('text', { key: 't', x: 16, y: 24, fill: sel ? '#EFE9E3' : '#C9C0B8', fontSize: 13, fontFamily: "'IBM Plex Sans',sans-serif" }, n.label),
+        h('text', { key: 's', x: 16, y: 41, fill: sel ? '#B4805F' : '#8A7F76', fontSize: 11, fontFamily: mono }, n.sub)
+      ]);
+    });
+    const graph = h('svg', {
+      viewBox: '0 0 900 540',
+      style: { width: '100%', height: 'clamp(380px,46vw,540px)', display: 'block', touchAction: 'none', cursor: st.drag && st.drag.type === 'pan' ? 'grabbing' : 'default' },
+      onMouseDown: e => {
+        if (e.target.tagName !== 'svg') { return; }
+        this.setState({ drag: { type: 'pan', sx: e.clientX, sy: e.clientY, ox: st.pan.x, oy: st.pan.y } });
+      },
+      onDoubleClick: () => this.setState({ pan: { x: 0, y: 0 }, zoom: 1, pos: {} })
+    }, [
+      h('defs', { key: 'd' }, h('pattern', { id: 'rg', width: 30, height: 30, patternUnits: 'userSpaceOnUse' }, h('circle', { cx: 1, cy: 1, r: 1, fill: '#1C1714' }))),
+      h('rect', { key: 'bg', width: 900, height: 540, fill: 'url(#rg)' }),
+      h('g', { key: 'v', transform: 'translate(' + st.pan.x + ',' + st.pan.y + ') scale(' + st.zoom + ')' }, [
+        h('g', { key: 'e' }, edges),
+        h('g', { key: 'n' }, nodeEls)
+      ])
+    ]);
+    const sel = NODES.find(n => n.id === st.node) || NODES[0];
+    const graphPanel = h('div', { style: { display: 'flex', flexDirection: 'column', gap: 12, height: '100%' } }, [
+      h('p', { key: 'k', style: { margin: 0, fontFamily: mono, fontSize: 10.5, letterSpacing: '.1em', color: '#8A7F76' } }, sel.kind === 'external' ? 'EXTERNAL SERVICE' : 'COMPONENT'),
+      h('p', { key: 'l', style: { margin: 0, fontSize: 19, letterSpacing: '-.015em', color: '#EFE9E3' } }, sel.label),
+      h('p', { key: 'd', style: { margin: 0, fontSize: 14, lineHeight: 1.6, color: '#8A7F76' } }, sel.desc),
+      sel.path ? h('div', { key: 'p', style: { marginTop: 'auto', paddingTop: 14, borderTop: '1px solid #241E1A' } }, [
+        h('p', { key: 'a', style: { margin: 0, fontFamily: mono, fontSize: 11, lineHeight: 1.6, color: '#8A7F76', wordBreak: 'break-all' } }, sel.path),
+        h('a', { key: 'b', href: BLOB + sel.path, target: '_blank', rel: 'noopener', style: { display: 'inline-flex', alignItems: 'center', gap: 7, marginTop: 12, fontSize: 13, color: '#E4692A', border: '1px solid #3F2C20', borderRadius: 7, padding: '8px 12px' } }, ['Click to open file', h('span', { key: 'i', style: { fontFamily: mono } }, '↗')])
+      ]) : h('p', { key: 'p2', style: { marginTop: 'auto', paddingTop: 14, borderTop: '1px solid #241E1A', fontSize: 12.5, color: '#8A7F76' } }, 'Runs outside the repository. No local file to open.')
+    ]);
+
+    // commits
+    const commitList = h('div', { style: { display: 'flex', flexDirection: 'column' } },
+      COMMITS.map((c, i) => {
+        const on = i === st.commit;
+        return h('button', {
+          key: c.sha, onClick: () => this.setState({ commit: i }),
+          style: { position: 'relative', textAlign: 'left', cursor: 'pointer', font: 'inherit', background: 'transparent', border: 'none', borderLeft: '1px solid #2E2620', padding: '0 0 22px 22px', marginLeft: 4 }
+        }, [
+          h('span', { key: 'd', style: { position: 'absolute', left: -5, top: 3, width: 9, height: 9, borderRadius: '50%', background: on ? '#D9500F' : '#0E0C0B', border: '1.5px solid ' + (on ? '#D9500F' : '#4A3D34') } }),
+          h('div', { key: 'r', style: { display: 'flex', gap: 10, alignItems: 'baseline' } }, [
+            h('span', { key: 'm', style: { fontSize: 15, color: on ? '#EFE9E3' : '#A0958C' } }, c.msg),
+            st.head === i ? h('span', { key: 'hd', style: { fontFamily: mono, fontSize: 9.5, letterSpacing: '.1em', color: '#E8A57C', border: '1px solid #3F2C20', borderRadius: 4, padding: '1px 5px' } }, 'HEAD') : null,
+            h('span', { key: 's', style: { marginLeft: 'auto', fontFamily: mono, fontSize: 11, color: '#857B73' } }, c.when)
+          ]),
+          h('p', { key: 'f', style: { margin: '5px 0 0', fontFamily: mono, fontSize: 11, color: '#857B73' } }, c.sha + '  ' + c.files)
+        ]);
+      })
+    );
+    const c = COMMITS[st.commit];
+    const commitDetail = h('div', { style: { display: 'flex', flexDirection: 'column', gap: 14, height: '100%' } }, [
+      h('p', { key: 'a', style: { margin: 0, fontFamily: mono, fontSize: 10.5, letterSpacing: '.1em', color: '#8A7F76' } }, 'COMMIT ' + c.sha),
+      h('p', { key: 'b', style: { margin: 0, fontSize: 19, letterSpacing: '-.015em', color: '#EFE9E3' } }, c.msg),
+      h('div', { key: 'c', style: { border: '1px solid #3F2C20', background: 'rgba(217,84,17,.06)', borderRadius: 9, padding: '14px 16px' } }, [
+        h('p', { key: 'l', style: { margin: 0, fontFamily: mono, fontSize: 10, letterSpacing: '.1em', color: '#B4805F' } }, 'REEVE EXPLANATION'),
+        h('p', { key: 't', style: { margin: '8px 0 0', fontSize: 14.5, lineHeight: 1.6, color: '#EFE9E3' } }, c.why)
+      ]),
+      h('p', { key: 'd', style: { margin: 0, fontFamily: mono, fontSize: 11.5, lineHeight: 1.6, color: '#8A7F76' } }, c.mem),
+      h('div', { key: 'e', style: { marginTop: 'auto', paddingTop: 16, display: 'flex', flexWrap: 'wrap', gap: 9 } }, [
+        h('a', { key: 1, href: GH + '/commits/main', target: '_blank', rel: 'noopener', style: { fontSize: 13.5, color: '#12100E', background: '#E4692A', border: '1px solid #F0854B', borderRadius: 7, padding: '9px 14px' } }, 'Open commit'),
+        h('button', { key: 2, onClick: () => this.setState({ head: st.head === st.commit ? null : st.commit }), style: { fontSize: 13.5, fontFamily: 'inherit', cursor: 'pointer', color: st.head === st.commit ? '#E8A57C' : '#EFE9E3', background: 'transparent', border: '1px solid ' + (st.head === st.commit ? '#3F2C20' : '#2F2721'), borderRadius: 7, padding: '9px 14px' } }, st.head === st.commit ? 'Return to latest' : 'Teleport to this version')
+      ]),
+      st.head === st.commit ? h('p', { key: 'hd', style: { margin: 0, fontFamily: mono, fontSize: 11.5, color: '#E8A57C' } }, 'Workspace shown at ' + c.sha + '. ' + (COMMITS.length - st.commit - 1) + ' later commits hidden.') : null,
+      h('p', { key: 'f', style: { margin: 0, fontSize: 11.5, color: '#7A7068' } }, 'Example project history shown for illustration.')
+    ]);
+
+    // demo
+    const vid = (this.props.demoVideoId || '').trim();
+    const demo = vid
+      ? h('div', { style: { position: 'relative', paddingTop: '56.25%', border: '1px solid #241E1A', borderRadius: 12, overflow: 'hidden', background: '#000' } },
+          h('iframe', { src: 'https://www.youtube.com/embed/' + vid, title: 'Reeve Devpilot demo', allow: 'accelerometer; clipboard-write; encrypted-media; picture-in-picture; fullscreen', allowFullScreen: true, style: { position: 'absolute', inset: 0, width: '100%', height: '100%', border: 0 } }))
+      : h('div', { style: { border: '1px dashed #3A3029', borderRadius: 12, background: 'repeating-linear-gradient(135deg,#121010 0 10px,#151211 10px 20px)', aspectRatio: '16 / 9', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14, padding: 24, textAlign: 'center' } }, [
+          h('p', { key: 'a', style: { margin: 0, fontFamily: mono, fontSize: 12, letterSpacing: '.1em', color: '#8A7F76' } }, 'DEMO VIDEO SLOT'),
+          h('p', { key: 'b', style: { margin: 0, fontFamily: mono, fontSize: 12, lineHeight: 1.7, color: '#857B73', maxWidth: 420 } }, 'Set the demoVideoId tweak to the YouTube id and this becomes the embedded player.'),
+          h('a', { key: 'c', href: GH, target: '_blank', rel: 'noopener', style: { marginTop: 4, fontSize: 13.5, color: '#EFE9E3', border: '1px solid #2F2721', borderRadius: 7, padding: '9px 14px' } }, 'Read the walkthrough on GitHub')
+        ]);
+
+    return {
+      getUrl: this.props.getReeveUrl || 'https://reeve-devpilot-downloads-309490998255.s3.us-west-2.amazonaws.com/Reeve-Devpilot-Setup.exe',
+      navBg: st.scrolled ? 'rgba(14,12,11,.82)' : 'rgba(14,12,11,0)',
+      navBorder: st.scrolled ? '#211B17' : 'transparent',
+      navPad: st.scrolled ? '8px' : '14px',
+      menuDisplay: st.menu ? 'flex' : 'none',
+      toggleMenu: () => this.setState(s => ({ menu: !s.menu })),
+      closeMenu: () => this.setState({ menu: false }),
+      heroFeed, problemTimeline, memoryTrack, memoryPanel,
+      explainFeed, explainSteps, graph, graphPanel, commitList, commitDetail, demo,
+      zoomIn: () => this.setState(s => ({ zoom: Math.min(1.8, s.zoom + 0.15) })),
+      zoomOut: () => this.setState(s => ({ zoom: Math.max(0.6, s.zoom - 0.15) })),
+      resetView: () => this.setState({ zoom: 1, pan: { x: 0, y: 0 }, pos: {} })
+    };
+  }
+}
+</script>
+</body>
+</html>

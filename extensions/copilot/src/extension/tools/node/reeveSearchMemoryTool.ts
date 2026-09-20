@@ -22,6 +22,7 @@ export interface IReeveSearchMemoryParams {
 
 class ReeveSearchMemoryTool implements vscode.LanguageModelTool<IReeveSearchMemoryParams> {
 	public static readonly toolName = ToolName.ReeveSearchMemory;
+	public static readonly nonDeferred = true;
 
 	constructor(
 		@IReeveClient private readonly reeveClient: IReeveClient,

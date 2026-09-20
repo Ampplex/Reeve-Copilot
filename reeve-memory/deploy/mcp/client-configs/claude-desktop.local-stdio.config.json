@@ -1,0 +1,18 @@
+{
+  "mcpServers": {
+    "threelane-memory-local": {
+      "command": "threelane-memory",
+      "args": [
+        "mcp"
+      ],
+      "env": {
+        "LLM_PROVIDER": "ollama",
+        "EMBEDDING_PROVIDER": "ollama",
+        "NEO4J_URI": "neo4j+s://YOUR_INSTANCE.databases.neo4j.io",
+        "NEO4J_USER": "neo4j",
+        "NEO4J_PASSWORD": "replace-me",
+        "OLLAMA_BASE_URL": "http://127.0.0.1:11434"
+      }
+    }
+  }
+}

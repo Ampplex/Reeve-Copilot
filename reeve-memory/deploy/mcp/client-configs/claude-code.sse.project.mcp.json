@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "threelane-memory": {
+      "type": "sse",
+      "url": "${THREELANE_MCP_SSE_URL:-http://YOUR_EC2_PUBLIC_IP:8000/sse}"
+    }
+  }
+}

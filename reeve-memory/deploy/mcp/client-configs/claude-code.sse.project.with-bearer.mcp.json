@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "threelane-memory": {
+      "type": "sse",
+      "url": "${THREELANE_MCP_SSE_URL:-https://YOUR_DOMAIN/sse}",
+      "headers": {
+        "Authorization": "Bearer ${THREELANE_MCP_TOKEN:-replace-me}"
+      }
+    }
+  }
+}

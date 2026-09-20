@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "threelane-memory": {
+      "type": "sse",
+      "url": "https://mcp.reeve.co.in/sse"
+    }
+  }
+}

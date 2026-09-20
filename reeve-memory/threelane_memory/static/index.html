@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reeve — Sign in</title>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@300;400;500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg: #1A1916;
+            --surface: rgba(255,255,255,0.04);
+            --surface2: rgba(255,255,255,0.07);
+            --border: rgba(225,244,246,0.1);
+            --border-strong: rgba(225,244,246,0.2);
+            --text: #E1F4F6;
+            --muted: rgba(225,244,246,0.55);
+            --faint: rgba(225,244,246,0.3);
+            --primary: #0D6E7A;
+            --primary-light: #56E1E9;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Dot grid background */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image: radial-gradient(rgba(225,244,246,0.07) 1px, transparent 1px);
+            background-size: 22px 22px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* Nav */
+        nav {
+            position: sticky;
+            top: 0;
+            z-index: 50;
+            border-bottom: 1px solid var(--border);
+            background-color: rgba(26,25,22,0.95);
+            backdrop-filter: blur(8px);
+        }
+
+        nav .nav-inner {
+            max-width: 1440px;
+            margin: 0 auto;
+            padding: 0 2rem;
+            height: 64px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        nav .logo {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            letter-spacing: 0.22em;
+            text-transform: uppercase;
+            color: var(--text);
+            text-decoration: none;
+        }
+
+        nav .nav-right {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+        }
+
+        nav .nav-link {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            letter-spacing: 0.22em;
+            text-transform: uppercase;
+            color: var(--muted);
+            text-decoration: none;
+            transition: color 0.15s;
+        }
+
+        nav .nav-link:hover { color: var(--text); }
+
+        /* Main layout */
+        main {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 3rem 1.5rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        .card {
+            width: 100%;
+            max-width: 420px;
+        }
+
+        /* Header */
+        .card-header {
+            text-align: center;
+            margin-bottom: 2.5rem;
+        }
+
+        .eyebrow {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            letter-spacing: 0.24em;
+            text-transform: uppercase;
+            color: var(--muted);
+            margin-bottom: 1.25rem;
+            display: block;
+        }
+
+        .card-header h1 {
+            font-family: 'Instrument Serif', Georgia, serif;
+            font-weight: 400;
+            font-size: clamp(2rem, 5vw, 2.75rem);
+            line-height: 0.95;
+            letter-spacing: -0.02em;
+            color: var(--text);
+            margin-bottom: 0.75rem;
+        }
+
+        .card-header h1 em {
+            color: rgba(225,244,246,0.4);
+            font-style: italic;
+        }
+
+        .card-header p {
+            font-size: 14px;
+            color: var(--muted);
+            line-height: 1.6;
+        }
+
+        /* Panel */
+        .panel {
+            border: 1px solid var(--border);
+            background: var(--surface);
+            padding: 2rem;
+        }
+
+        /* Google sign in button container */
+        .google-btn-wrap {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 1.5rem;
+        }
+
+        /* Divider */
+        .divider {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin: 1.5rem 0;
+        }
+
+        .divider::before,
+        .divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--border);
+        }
+
+        .divider span {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            color: var(--faint);
+        }
+
+        /* Email input */
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.625rem;
+        }
+
+        input[type="email"] {
+            width: 100%;
+            height: 44px;
+            padding: 0 1rem;
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            color: var(--text);
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.15s;
+            border-radius: 0;
+        }
+
+        input[type="email"]::placeholder { color: var(--faint); }
+        input[type="email"]:focus { border-color: var(--border-strong); }
+
+        .btn-email {
+            width: 100%;
+            height: 44px;
+            background: transparent;
+            border: 1px solid var(--border-strong);
+            color: var(--text);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: background 0.15s, border-color 0.15s;
+        }
+
+        .btn-email:hover {
+            background: var(--surface2);
+            border-color: var(--primary-light);
+        }
+
+        /* Terms */
+        .terms {
+            text-align: center;
+            margin-top: 1.25rem;
+            font-size: 11px;
+            color: rgba(225,244,246,0.25);
+            line-height: 1.6;
+        }
+
+        .terms a {
+            color: var(--faint);
+            text-decoration: underline;
+        }
+
+        /* Result states */
+        .plan-badge {
+            display: none;
+            margin-top: 1.5rem;
+            padding: 0.5rem 1rem;
+            border: 1px solid var(--border);
+            background: var(--surface);
+        }
+
+        .plan-badge span {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            color: var(--muted);
+        }
+
+        .plan-badge strong {
+            color: var(--primary-light);
+        }
+
+        .token-panel {
+            display: none;
+            margin-top: 1.5rem;
+            border: 1px solid var(--border);
+            background: var(--surface);
+            overflow: hidden;
+        }
+
+        .token-panel-header {
+            padding: 0.625rem 1rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .token-panel-header span {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            color: var(--muted);
+        }
+
+        .token-text {
+            padding: 1rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            color: var(--primary-light);
+            word-break: break-all;
+            line-height: 1.6;
+        }
+
+        .btn-copy {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--muted);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            padding: 0.25rem 0.75rem;
+            cursor: pointer;
+            transition: border-color 0.15s, color 0.15s;
+        }
+
+        .btn-copy:hover {
+            border-color: var(--primary-light);
+            color: var(--primary-light);
+        }
+
+        .instructions-panel {
+            display: none;
+            margin-top: 1rem;
+            border: 1px solid var(--border);
+            background: var(--surface);
+        }
+
+        .instructions-header {
+            padding: 0.625rem 1rem;
+            border-bottom: 1px solid var(--border);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            color: var(--muted);
+        }
+
+        .instructions-body {
+            padding: 1rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            color: var(--muted);
+            line-height: 1.8;
+            white-space: pre;
+            overflow-x: auto;
+        }
+
+        /* Footer */
+        footer {
+            position: relative;
+            z-index: 1;
+            border-top: 1px solid var(--border);
+            padding: 1.25rem 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        footer span {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            color: var(--faint);
+        }
+
+        footer a {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            color: var(--faint);
+            text-decoration: none;
+            transition: color 0.15s;
+        }
+
+        footer a:hover { color: var(--text); }
+    </style>
+</head>
+<body>
+
+    <nav>
+        <div class="nav-inner">
+            <a href="https://reeve.co.in" class="logo">Reeve</a>
+            <div class="nav-right">
+                <a href="https://reeve.co.in/docs" class="nav-link">Docs</a>
+                <a href="https://reeve.co.in/pricing" class="nav-link">Pricing</a>
+            </div>
+        </div>
+    </nav>
+
+    <main>
+        <div class="card">
+            <div class="card-header">
+                <span class="eyebrow">Reeve Console</span>
+                <h1>
+                    Sign in to<br>
+                    <em>your workspace.</em>
+                </h1>
+                <p>Get your API key and connect Reeve to your agent.</p>
+            </div>
+
+            <div class="panel">
+                <!-- Google sign in — all data attributes preserved exactly -->
+                <div id="g_id_onload"
+                     data-client_id="REPLACE_WITH_YOUR_GOOGLE_CLIENT_ID"
+                     data-callback="handleCredentialResponse"
+                     data-auto_prompt="false">
+                </div>
+                <div class="google-btn-wrap">
+                    <div class="g_id_signin"
+                         data-type="standard"
+                         data-size="large"
+                         data-theme="outline"
+                         data-text="sign_in_with"
+                         data-shape="rectangular"
+                         data-logo_alignment="left">
+                    </div>
+                </div>
+            </div>
+
+            <p class="terms">
+                By signing in you agree to our
+                <a href="https://reeve.co.in/terms">Terms</a> and
+                <a href="https://reeve.co.in/privacy">Privacy Policy</a>.
+            </p>
+
+            <!-- Plan info — id preserved exactly -->
+            <div id="planInfo" class="plan-badge">
+                <span>Active plan: <strong id="planText"></strong></span>
+            </div>
+
+            <!-- Token box — all ids preserved exactly -->
+            <div id="tokenBox" class="token-panel">
+                <div class="token-panel-header">
+                    <span>Your permanent API key</span>
+                    <button id="copyBtn" class="btn-copy">Copy</button>
+                </div>
+                <div id="tokenText" class="token-text"></div>
+            </div>
+
+            <!-- Instructions — id preserved exactly -->
+            <div id="instructions" class="instructions-panel">
+                <div class="instructions-header">Usage in MCP config</div>
+                <div class="instructions-body">"mcpServers": {
+  "threelane-memory": {
+    "type": "sse",
+    "url": "https://mcp.reeve.co.in/sse",
+    "headers": {
+      "Authorization": "Bearer YOUR_API_KEY"
+    }
+  }
+}</div>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <span>© 2026 Reeve</span>
+        <a href="https://reeve.co.in">reeve.co.in ↗</a>
+    </footer>
+
+    <script>
+        const GOOGLE_CLIENT_ID = "REPLACE_WITH_YOUR_GOOGLE_CLIENT_ID";
+        let userToken = null;
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const authReq = urlParams.get('auth_req');
+
+        function handleCredentialResponse(response) {
+            displayToken(response.credential);
+        }
+
+        function displayToken(token) {
+            userToken = token;
+
+            if (authReq) {
+                fetch('/oauth/consent', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': 'Bearer ' + token,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ auth_req: authReq })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.redirect_url) {
+                        window.location.href = data.redirect_url;
+                    } else if (data.error) {
+                        alert('Authorization failed: ' + data.error);
+                    }
+                })
+                .catch(err => {
+                    console.error('Consent failed', err);
+                    alert('An error occurred during authorization.');
+                });
+                return;
+            }
+
+            verifySession(false);
+        }
+
+        function verifySession(issueApiKey) {
+            const url = issueApiKey ? '/auth/verify?issue_api_key=true' : '/auth/verify';
+            fetch(url, {
+                method: 'POST',
+                headers: { 'Authorization': 'Bearer ' + userToken }
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.api_key && data.api_key_kind !== 'session') {
+                    showApiKey(data.api_key);
+                } else if (data.has_api_key) {
+                    showExistingKeyNotice();
+                } else if (!issueApiKey) {
+                    verifySession(true);
+                }
+                if (data.plan) {
+                    const planEl = document.getElementById('planInfo');
+                    document.getElementById('planText').innerText = data.plan.toUpperCase();
+                    planEl.style.display = 'block';
+                }
+            })
+            .catch(err => console.error('Verification failed', err));
+        }
+
+        function showApiKey(apiKey) {
+            document.getElementById('tokenText').innerText = apiKey;
+            document.getElementById('tokenBox').style.display = 'block';
+            document.getElementById('copyBtn').innerText = 'Copy';
+            document.getElementById('copyBtn').style.display = 'inline-block';
+            document.getElementById('instructions').style.display = 'block';
+            document.getElementById('copyBtn').onclick = copyApiKey;
+        }
+
+        function showExistingKeyNotice() {
+            document.getElementById('tokenText').innerText = 'API key already exists. Generate a new key to reveal it.';
+            document.getElementById('tokenBox').style.display = 'block';
+            document.getElementById('copyBtn').innerText = 'Generate';
+            document.getElementById('copyBtn').style.display = 'inline-block';
+            document.getElementById('instructions').style.display = 'none';
+            document.getElementById('copyBtn').onclick = function() { verifySession(true); };
+        }
+
+        function copyApiKey() {
+            const token = document.getElementById('tokenText').innerText;
+            navigator.clipboard.writeText(token).then(() => {
+                const btn = document.getElementById('copyBtn');
+                btn.innerText = 'Copied';
+                setTimeout(() => { btn.innerText = 'Copy'; }, 1500);
+            });
+        }
+    </script>
+</body>
+</html>

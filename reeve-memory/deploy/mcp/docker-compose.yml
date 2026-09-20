@@ -1,0 +1,20 @@
+services:
+  threelane-memory-mcp:
+    build:
+      context: ../..
+      dockerfile: deploy/mcp/Dockerfile
+    container_name: threelane-memory-mcp
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8000:8000"
+    env_file:
+      - ../../.env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    # Hardening: drop all Linux capabilities and forbid privilege escalation.
+    # The service only needs an unprivileged TCP listener on :8000 and outbound
+    # HTTPS, so it requires no capabilities.
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL

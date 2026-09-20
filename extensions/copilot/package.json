@@ -1276,52 +1276,35 @@
         ]
       },
       {
-        "name": "copilot_sessionStoreSql",
-        "displayName": "Session Store SQL",
-        "toolReferenceName": "sessionStoreSql",
-        "when": "github.copilot.sessionSearch.enabled",
-        "userDescription": "Query your Copilot session history using SQL",
-        "modelDescription": "Query the local session store containing history from past coding sessions. Uses SQLite syntax (NOT DuckDB or Postgres). SQL queries are read-only — only SELECT and WITH are allowed. Use `datetime('now', '-1 day')` for date math (NOT `now() - INTERVAL '1 day'`), FTS5 `MATCH` for text search.\n\nTables: `sessions`, `turns`, `session_files`, `session_refs`, `checkpoints`, `search_index`. For column details and query patterns, use the **chronicle** skill.\n\nActions: 'query' (execute SQL — supports JOINs, FTS5 MATCH, aggregations), 'reindex' (rebuild index from debug logs).",
+        "name": "copilot_reeveSearchMemory",
+        "displayName": "Reeve Project Memory",
+        "toolReferenceName": "reeveSearchMemory",
+        "when": "config.github.copilot.reeve.enabled",
+        "userDescription": "Query Reeve temporal knowledge graph and persistent project memory",
+        "modelDescription": "Query Reeve long-term project memory and temporal knowledge graph for past decisions, architectural patterns, constraints, project history, past sessions, and context. Always use this tool when recalling previous discussions, user preferences, technical decisions, or past work.",
         "tags": [],
-        "canBeReferencedInPrompt": false,
         "inputSchema": {
           "type": "object",
           "properties": {
-            "action": {
-              "type": "string",
-              "enum": [
-                "query",
-                "reindex"
-              ],
-              "description": "The action to perform. 'query' (default) executes a SQL query. 'reindex' rebuilds the local session index and syncs to cloud if enabled."
-            },
             "query": {
               "type": "string",
-              "description": "A single read-only SQL query to execute. Required when action is 'query'. Supports SELECT, WITH, JOINs, aggregations, and FTS5 MATCH. Only one statement per call — do not combine multiple queries with semicolons."
+              "description": "The search query to look up in Reeve temporal memory."
             },
-            "force": {
-              "type": "boolean",
-              "description": "When true with action 'reindex', re-processes all sessions including already-indexed ones. Default false (skips already-indexed sessions)."
-            },
-            "description": {
+            "category": {
               "type": "string",
-              "description": "A 2-5 word summary of what this call does (e.g. 'Recent sessions overview', 'Generate standup', 'Reindex sessions')."
+              "description": "Optional category filter (e.g. 'decision', 'architecture', 'constraint', 'history')."
             },
-            "subcommand": {
+            "namespace": {
               "type": "string",
-              "enum": [
-                "standup",
-                "tips",
-                "cost-tips",
-                "search",
-                "improve",
-                "reindex"
-              ],
-              "description": "The chronicle subcommand that triggered this call (e.g. 'tips' for /chronicle tips). Used for telemetry attribution only — pass this whenever the call originates from a /chronicle slash command."
+              "description": "Optional workspace/project namespace."
+            },
+            "limit": {
+              "type": "number",
+              "description": "Maximum number of memory facts to return (default 5)."
             }
           },
           "required": [
-            "description"
+            "query"
           ]
         }
       }
@@ -1372,7 +1355,8 @@
           "listDirectory",
           "textSearch",
           "searchSubagent",
-          "usages"
+          "usages",
+          "reeveSearchMemory"
         ]
       },
       {
@@ -1382,6 +1366,7 @@
           "installExtension",
           "memory",
           "newWorkspace",
+          "reeveSearchMemory",
           "resolveMemoryFileUri",
           "runCommand",
           "switchAgent",

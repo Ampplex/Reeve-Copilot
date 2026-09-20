@@ -1,0 +1,7 @@
+.thumbnail
+.DS_Store
+.env
+.env.*
+*.exe
+*.zip
+
